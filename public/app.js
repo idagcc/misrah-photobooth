@@ -1,0 +1,567 @@
+import { clamp, faceGeometry, manualGeometry, targetForOpening, alignment, findTransparentOpening } from './geometry.js';
+import { correctionFor } from './live-quality.js';
+import { LiveCamera } from './live-camera.js';
+import { createGuestFlow } from './guest-flow.js';
+
+const $ = id => document.getElementById(id);
+const guestExperience = document.body.dataset.experience === 'guest';
+let guestFlow;
+const portrait = $('portrait'), ctx = portrait.getContext('2d');
+const sourceCanvas = $('source-canvas'), sourceCtx = sourceCanvas.getContext('2d');
+const defaults = { scale: 100, x: 0, y: 0, rotation: 0, warmth: 30, brightness: 100, softness: 2, flip: false };
+const state = { settings: { ...defaults }, source: null, faces: [], selected: 0, frame: null,
+  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [] };
+const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+const imageFromURL = url => new Promise((resolve, reject) => {
+  const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('This image could not be opened. Use a PNG, JPEG, or WebP photo.')); image.src = url;
+});
+function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
+function busy(on, label = 'Finding your face…') { $('busy').hidden = !on; $('busy-label').textContent = label; }
+function modelStatus(message, mode = 'ready') { $('model-status').textContent = message; $('model-dot').className = `small-dot ${mode}`; }
+function controlsEnabled(on) { $('face-controls').disabled = !on; $('download').disabled = !on; if (guestExperience) $('print-photo').disabled = !on; $('stage-empty').hidden = on; }
+function guestStep(step) {
+  if (!guestExperience) return;
+  guestFlow?.show(step);
+  document.body.dataset.step = step;
+  $('choose-step').hidden = step === 'result'; $('result-step').hidden = step !== 'result';
+  $('experience-title').textContent = step === 'result' ? 'Made of history. Made of you.' : 'Which story will you step into?';
+  $('experience-subtitle').textContent = step === 'result' ? 'Love your portrait? Print it. Fancy another take? Try again.' : 'Tap a template. Your portrait experience starts right away.';
+  const sample = step === 'result' && /^(AI TEST|SIMULATED|SAMPLE)/.test($('source-tag').textContent);
+  $('sample-disclosure').hidden = !sample;
+  $('photo-context').textContent = step === 'result' ? (sample ? 'SAMPLE PORTRAIT' : 'YOUR FINISHED PORTRAIT') : 'SCENE PREVIEW';
+  portrait.setAttribute('aria-label', step === 'result' ? 'Your finished heritage portrait' : 'Selected heritage scene');
+}
+let worker, engineFailed = false, nextJob = 0;
+const jobs = new Map();
+let acceptReady, rejectReady;
+const ready = new Promise((resolve, reject) => { acceptReady = resolve; rejectReady = reject; });
+// Attach the failure handler before the worker can report a startup failure.
+ready.catch(() => {});
+const startupTimer = setTimeout(() => rejectReady(new Error('The local detector took too long to start. Refresh to retry; manual positioning is available.')), 45000);
+try {
+  worker = new Worker('./detector-worker.js');
+  worker.onmessage = ({ data }) => {
+    if (data.type === 'ready') { clearTimeout(startupTimer); acceptReady(); return; }
+    if (data.type === 'init-error') { clearTimeout(startupTimer); rejectReady(new Error(data.error)); return; }
+    const job = jobs.get(data.id); if (!job) { data.corrected?.close(); return; }
+    clearTimeout(job.timer); jobs.delete(data.id);
+    data.type === 'result' ? job.resolve(data) : job.reject(new Error(data.error));
+  };
+  worker.onerror = event => {
+    clearTimeout(startupTimer); rejectReady(new Error(event.message || 'Face detection is unavailable.'));
+    for (const job of jobs.values()) { clearTimeout(job.timer); job.reject(new Error('The detector stopped. Refresh to retry.')); }
+    jobs.clear(); engineFailed = true;
+  };
+} catch (error) { clearTimeout(startupTimer); rejectReady(error); }
+
+async function requestWorker(data, bitmap) {
+  await ready;
+  if (engineFailed) { bitmap.close(); throw new Error('The detector is unavailable.'); }
+  return new Promise((resolve, reject) => {
+    const id = ++nextJob;
+    const timer = setTimeout(() => { jobs.delete(id); reject(new Error('Detection timed out. Use manual positioning or refresh to retry.')); }, 20000);
+    jobs.set(id, { resolve, reject, timer });
+    worker.postMessage({ ...data, id, bitmap }, [bitmap]);
+  });
+}
+async function detect(image, options = {}) {
+  const factor = Math.min(1, (options.live ? 640 : 1280) / Math.max(image.width, image.height));
+  const bitmap = await createImageBitmap(image, { resizeWidth: Math.max(1, Math.round(image.width * factor)), resizeHeight: Math.max(1, Math.round(image.height * factor)) });
+  return requestWorker({ type: 'detect', ...options }, bitmap);
+}
+
+let builtIn, reference;
+const clientFrames = new Map();
+const testGuests = new Map();
+const sceneDefinitions = [
+  { id: 'frontal-weaver', src: 'assets/frontal/frontal-weaver.png', name: 'Frontal weaver', generated: true },
+  { id: 'frontal-pearl-trader', src: 'assets/frontal/frontal-pearl-trader.png', name: 'Frontal pearl trader', generated: true },
+  { id: 'misrah-1', src: 'assets/misrah-1.png', name: 'The pearl trader' },
+  { id: 'misrah-2', src: 'assets/misrah-2.png', name: 'The weaver' },
+  { id: 'misrah-3', src: 'assets/misrah-3.png', name: 'The woven arch' }
+];
+const guestDefinitions = [
+  { id: 'frontal-guest-woman', name: 'Woman' },
+  { id: 'frontal-guest-man', name: 'Man' },
+  { id: 'frontal-guest-bearded', name: 'Bearded man' }
+];
+async function makeBuiltIn() {
+  const [image, demo] = await Promise.all([imageFromURL('./assets/heritage-frame.png'), imageFromURL('./assets/demo-portrait.png')]);
+  reference = demo;
+  const w = image.width, h = image.height, layer = makeCanvas(w, h), lctx = layer.getContext('2d', { willReadFrequently: true });
+  lctx.drawImage(image, 0, 0);
+  const pixels = lctx.getImageData(0, 0, w, h), matte = makeCanvas(w, h), maskctx = matte.getContext('2d');
+  const maskPixels = maskctx.createImageData(w, h);
+  let left = w, top = h, right = 0, bottom = 0;
+  // The supplied artwork marks the opening blue. Restrict chroma removal to its
+  // face region so similarly coloured details elsewhere remain intact.
+  for (let y = Math.floor(h * .25); y < h * .48; y++) for (let x = Math.floor(w * .43); x < w * .62; x++) {
+    const i = (y * w + x) * 4, [r, g, b] = pixels.data.slice(i, i + 3);
+    if (b - r > 2 && g - r > 2 && b > 35) {
+      maskPixels.data[i] = maskPixels.data[i + 1] = maskPixels.data[i + 2] = maskPixels.data[i + 3] = 255;
+      left = Math.min(left, x); right = Math.max(right, x + 1); top = Math.min(top, y); bottom = Math.max(bottom, y + 1);
+    }
+  }
+  if (right <= left) throw new Error('The heritage frame opening could not be prepared.');
+  maskctx.putImageData(maskPixels, 0, 0);
+  lctx.globalCompositeOperation = 'destination-out'; lctx.drawImage(matte, 0, 0); lctx.globalCompositeOperation = 'source-over';
+  const bounds = { left, top, right, bottom };
+  const target = { anchor: { x: w * .521, y: h * .329 }, eyeDistance: w * .053, angle: .1, width: right - left, height: bottom - top };
+  builtIn = { image, preview: demo, layer, mask: matte, bounds, target, name: 'The artisan', custom: false };
+  state.frame = builtIn; setCanvasSize(); render();
+}
+
+const templateReady = makeBuiltIn().catch(error => { status(error.message, true); throw error; });
+templateReady.catch(() => {});
+const engineReady = (async () => {
+  try {
+    await Promise.all([ready, templateReady]);
+    const calibration = await detect(reference);
+    if (calibration.landmarks.length) {
+      builtIn.target = faceGeometry(calibration.landmarks[0], reference.width, reference.height);
+      builtIn.quality = calibration.qualities[0];
+      builtIn.sample = makeCalibrationSample(reference, builtIn.target.bounds);
+      const normalized = await detect(builtIn.sample); builtIn.pose = normalized.poses[0];
+    }
+    await prepareClientScenes();
+    await prepareTestGuests();
+    modelStatus('Offline face detector ready · Photos stay on this device');
+    if (guestExperience) { $('open-camera').disabled = false; $('heritage-frame').disabled = false; guestFlow?.ready(); status(''); }
+    render();
+  } catch (error) {
+    engineFailed = true;
+    modelStatus('Automatic detection unavailable · Manual positioning works', 'failed');
+    status(guestExperience ? 'The photo booth could not start. Please refresh and try again.' : 'The local face detector could not start. You can still upload a photo and position it manually. Refresh to retry.', true);
+    if (guestExperience) guestFlow?.fail('The photo booth could not start. Please ask an attendant to refresh it.');
+  }
+})();
+
+async function prepareClientScenes() {
+  const contour = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+  let prepared = 0;
+  for (const definition of sceneDefinitions) {
+    try {
+      const image = await imageFromURL(`./${definition.src}`), result = await detect(image);
+      if (!result.landmarks.length) throw new Error('No target face found');
+      const points = result.landmarks[0], w = image.width, h = image.height;
+      const mask = makeCanvas(w, h), mctx = mask.getContext('2d'); mctx.fillStyle = 'white'; mctx.beginPath();
+      contour.forEach((index, j) => { const p = points[index]; j ? mctx.lineTo(p.x * w, p.y * h) : mctx.moveTo(p.x * w, p.y * h); });
+      mctx.closePath(); mctx.fill();
+      const layer = makeCanvas(w, h), lctx = layer.getContext('2d'); lctx.drawImage(image, 0, 0);
+      lctx.globalCompositeOperation = 'destination-out'; lctx.drawImage(mask, 0, 0);
+      const target = faceGeometry(points, w, h);
+      const sample = makeCalibrationSample(image, target.bounds), normalized = await detect(sample);
+      const pose = normalized.poses[0] || result.poses[0];
+      clientFrames.set(definition.id, { image, layer, mask, bounds: { ...target.bounds }, target, sample,
+        pose, quality: { ...result.qualities[0], styleStrength: definition.generated ? .35 : .85 }, name: definition.name, generated: Boolean(definition.generated), custom: false });
+      $(definition.id).disabled = false;
+      $(definition.id).title = guestExperience ? `Choose ${$(definition.id).querySelector('strong').textContent.toLowerCase()}` : `Estimated centred pose: turn ${Math.round(pose.yaw)}°, chin ${Math.round(pose.pitch)}°, eye tilt ${(target.angle * 180 / Math.PI).toFixed(1)}°`;
+      prepared++;
+    } catch (error) { $(definition.id).title = 'This scene could not be calibrated. Refresh to retry.'; }
+  }
+  $('template-status').textContent = `${prepared} of 5 scenes ready · Two AI frontal tests + three original client designs.`;
+  if (prepared && !state.source && state.frame === builtIn) {
+    const id = clientFrames.has('frontal-weaver') ? 'frontal-weaver' : clientFrames.keys().next().value;
+    selectScene(clientFrames.get(id), id);
+  }
+}
+
+async function prepareTestGuests() {
+  for (const definition of guestDefinitions) {
+    try {
+      const image = await imageFromURL(`./assets/frontal/${definition.id}.png`), detected = await detect(image);
+      if (detected.landmarks.length !== 1) throw new Error('Expected one face');
+      const geometry = faceGeometry(detected.landmarks[0], image.width, image.height);
+      const sample = makeCalibrationSample(image, geometry.bounds), normalized = await detect(sample);
+      const pose = normalized.poses[0];
+      testGuests.set(definition.id, { image, sample, pose, name: definition.name });
+      $(definition.id).disabled = false;
+      $(definition.id).title = `AI-generated test person · Estimated turn ${Math.round(pose.yaw)}°, eye tilt ${(geometry.angle * 180 / Math.PI).toFixed(1)}°`;
+    } catch (error) { $(definition.id).title = 'Test face unavailable. Refresh to retry.'; }
+  }
+  $('guest-status').textContent = `${testGuests.size} straight-on AI test faces ready`;
+}
+
+for (const definition of guestDefinitions) $(definition.id).addEventListener('click', async () => {
+  const guest = testGuests.get(definition.id); if (!guest) return;
+  $('sample-person').value = definition.id;
+  for (const item of guestDefinitions) $(item.id).setAttribute('aria-pressed', String(item.id === definition.id));
+  await setSource(guest.image, `AI TEST · ${guest.name.toUpperCase()} · STRAIGHT ON`);
+});
+
+function poseInfo() {
+  const pose = state.poses[state.selected], face = state.faces[state.selected], target = state.frame?.pose;
+  $('pose-info').hidden = !pose || !target || !face;
+  if (pose && target && face) $('pose-info').textContent = `Estimated head turn: photo ${Math.round(pose.yaw)}° / scene ${Math.round(target.yaw)}° · Eye tilt: photo ${(face.angle * 180 / Math.PI).toFixed(1)}° / scene ${(state.frame.target.angle * 180 / Math.PI).toFixed(1)}°`;
+}
+
+function makeCalibrationSample(image, b) {
+  const out = makeCanvas(640, 480), c = out.getContext('2d'); c.fillStyle = '#ddd9ca'; c.fillRect(0, 0, 640, 480);
+  const bw = b.right - b.left, bh = b.bottom - b.top, cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2;
+  const scale = Math.min(230 / bw, 290 / bh), sx = Math.max(0, b.left - bw * .2), sy = Math.max(0, b.top - bh * .22);
+  const sw = Math.min(image.width - sx, bw * 1.4), sh = Math.min(image.height - sy, bh * 1.44);
+  c.drawImage(image, sx, sy, sw, sh, 320 + (sx - cx) * scale, 225 + (sy - cy) * scale, sw * scale, sh * scale);
+  return out;
+}
+
+function selectScene(frame, id) {
+  state.frame = frame; $('custom-tools').hidden = true; $('edit-opening').checked = false;
+  state.settings.warmth = frame.quality?.styleStrength ? 0 : 30;
+  state.settings.softness = frame.quality?.styleStrength ? 6 : 2;
+  for (const button of $('scene-list').querySelectorAll('.frame-card')) {
+    button.classList.toggle('selected', button.id === id); button.querySelector('.check').hidden = button.id !== id;
+    button.setAttribute('aria-pressed', String(button.id === id));
+  }
+  if (guestExperience) $('photo-caption').textContent = $(id)?.querySelector('strong')?.textContent || frame.name;
+  setCanvasSize(); resetFit(); applyAutoTone(); poseInfo();
+}
+for (const definition of sceneDefinitions) $(definition.id).addEventListener('click', () => {
+  const frame = clientFrames.get(definition.id); if (frame) { selectScene(frame, definition.id); status(guestExperience ? '' : `${frame.name} selected. ${definition.generated ? 'AI-generated frontal test scene.' : 'Original client design.'} Live guidance uses this scene’s head angle.`); if (guestExperience) guestFlow?.start(); }
+});
+
+async function applyAutoTone() {
+  const token = ++state.toneGeneration, generation = state.generation;
+  if (!state.rawSource) return;
+  state.source = state.rawSource;
+  const q = state.qualities[state.selected];
+  if (!$('auto-tone').checked || !q || engineFailed) {
+    $('tone-info').textContent = $('auto-tone').checked ? 'Automatic tone needs a detected face.' : 'Original colour retained. Manual controls remain available.';
+    updateSourcePreview(); render(); return;
+  }
+  try {
+    $('download').disabled = true;
+    const correction = correctionFor(q, state.frame.quality);
+    const bitmap = await createImageBitmap(state.rawSource);
+    const result = await requestWorker({ type: 'correct', correction }, bitmap);
+    try {
+      if (token !== state.toneGeneration || generation !== state.generation) return;
+      const corrected = makeCanvas(result.corrected.width, result.corrected.height);
+      corrected.getContext('2d').drawImage(result.corrected, 0, 0); state.source = corrected;
+      $('tone-info').textContent = `Auto tone applied · Exposure ${Math.round(correction.exposure * 100)}% · Gentle white balance`;
+      updateSourcePreview(); render();
+    } finally { result.corrected.close(); }
+  } catch (error) { if (token === state.toneGeneration) $('tone-info').textContent = 'Automatic tone unavailable. Manual adjustments still work.'; }
+  finally { if (token === state.toneGeneration && generation === state.generation) $('download').disabled = false; }
+}
+$('auto-tone').addEventListener('change', applyAutoTone);
+
+function setCanvasSize() {
+  portrait.width = state.frame.image.width; portrait.height = state.frame.image.height;
+  $('dimensions').textContent = `${portrait.width} × ${portrait.height} px`;
+  // Position sliders are measured in original image pixels.
+  for (const id of ['x', 'y']) { $(id).min = -Math.round(Math.max(portrait.width, portrait.height) * .3); $(id).max = -Number($(id).min); }
+}
+const faceLayer = makeCanvas(1, 1), softenedMask = makeCanvas(1, 1), overlayLayer = makeCanvas(1, 1);
+let maskCache = '';
+function render() {
+  if (!state.frame) return;
+  const { frame, source, settings } = state, w = portrait.width, h = portrait.height;
+  ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#f3eddf'; ctx.fillRect(0, 0, w, h);
+  // Show the complete photograph while the guest chooses a scene.
+  if (guestExperience && !source) { ctx.drawImage(frame.preview || frame.image, 0, 0, w, h); return; }
+  ctx.drawImage(frame.layer, 0, 0);
+  if (source && state.view === 'result') {
+    const geometry = state.faces[state.selected] || manualGeometry(source.width, source.height);
+    const transform = alignment(geometry, frame.target, settings);
+    if (faceLayer.width !== w || faceLayer.height !== h) { faceLayer.width = w; faceLayer.height = h; }
+    const fctx = faceLayer.getContext('2d'); fctx.clearRect(0, 0, w, h);
+    fctx.save(); fctx.translate(transform.x, transform.y); fctx.rotate(transform.angle);
+    fctx.scale(transform.scale * (settings.flip ? -1 : 1), transform.scale);
+    fctx.translate(-geometry.anchor.x, -geometry.anchor.y);
+    fctx.filter = `sepia(${settings.warmth * .6}%) saturate(${100 - settings.warmth * .25}%) brightness(${settings.brightness}%)`;
+    fctx.drawImage(source, 0, 0); fctx.restore();
+    const cacheKey = `${frame.name}:${w}:${h}:${settings.softness}:${frame.revision || 0}`;
+    if (cacheKey !== maskCache) {
+      softenedMask.width = w; softenedMask.height = h;
+      const mctx = softenedMask.getContext('2d');
+      // Keep the opening fully opaque in the matte, and feather outward into
+      // the surrounding trim. Blurring inward would leave the blue key visible.
+      mctx.shadowColor = 'white'; mctx.shadowBlur = settings.softness * 2;
+      mctx.drawImage(frame.mask, 0, 0);
+      overlayLayer.width = w; overlayLayer.height = h;
+      const octx = overlayLayer.getContext('2d'); octx.drawImage(frame.image, 0, 0);
+      octx.globalCompositeOperation = 'destination-out'; octx.drawImage(softenedMask, 0, 0);
+      maskCache = cacheKey;
+    }
+    // A generously padded coverage rectangle makes the face opaque underneath
+    // the feathered frame. The frame alpha defines the final visible contour.
+    const b = frame.bounds, pad = settings.softness * 8 + 5;
+    fctx.globalCompositeOperation = 'destination-in'; fctx.fillStyle = 'white';
+    fctx.fillRect(b.left - pad, b.top - pad, b.right - b.left + pad * 2, b.bottom - b.top + pad * 2);
+    fctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(faceLayer, 0, 0); ctx.drawImage(overlayLayer, 0, 0);
+  } else {
+    ctx.save(); ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#514c40'; ctx.fillRect(0, 0, w, h); ctx.restore();
+    // Fill only the face opening with a warm neutral placeholder.
+    const placeholder = makeCanvas(w, h), pctx = placeholder.getContext('2d');
+    pctx.fillStyle = '#6b705d'; pctx.fillRect(0, 0, w, h); pctx.globalCompositeOperation = 'destination-in'; pctx.drawImage(frame.mask, 0, 0);
+    ctx.drawImage(placeholder, 0, 0); ctx.drawImage(frame.layer, 0, 0);
+  }
+  if (frame.custom && $('edit-opening').checked) {
+    ctx.save(); ctx.strokeStyle = '#eddb8a'; ctx.lineWidth = Math.max(2, w / 500); ctx.setLineDash([w / 100, w / 150]);
+    const b = frame.bounds; ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.restore();
+  }
+}
+
+function syncSettings() {
+  for (const key of Object.keys(defaults)) {
+    if (key === 'flip') { $('flip').setAttribute('aria-pressed', String(state.settings.flip)); continue; }
+    $(key).value = state.settings[key];
+    const suffix = ['scale', 'warmth', 'brightness'].includes(key) ? '%' : key === 'rotation' ? '°' : key === 'softness' ? ' px' : '';
+    $(`${key}-value`).textContent = `${state.settings[key]}${suffix}`;
+  }
+}
+function resetFit() { state.settings.scale = 100; state.settings.x = 0; state.settings.y = 0; state.settings.rotation = 0; state.settings.flip = false; syncSettings(); render(); }
+for (const key of Object.keys(defaults).filter(key => key !== 'flip')) $(key).addEventListener('input', () => {
+  state.settings[key] = Number($(key).value); syncSettings(); render();
+});
+$('flip').addEventListener('click', () => { state.settings.flip = !state.settings.flip; syncSettings(); render(); });
+$('auto-fit').addEventListener('click', () => { resetFit(); status(state.faces.length ? 'Face aligned. Drag or adjust the controls to fine-tune it.' : 'Manual fit reset. Adjust size and position to frame your face.'); });
+function updateSourcePreview() {
+  if (!state.source) return;
+  const image = state.source;
+  const factor = Math.min(sourceCanvas.width / image.width, sourceCanvas.height / image.height);
+  const dx = (sourceCanvas.width - image.width * factor) / 2, dy = (sourceCanvas.height - image.height * factor) / 2;
+  sourceCtx.fillStyle = '#e2e4da'; sourceCtx.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+  sourceCtx.drawImage(image, dx, dy, image.width * factor, image.height * factor);
+  for (let i = 0; i < state.faces.length; i++) {
+    const b = state.faces[i].bounds;
+    sourceCtx.strokeStyle = i === state.selected ? '#ddedbd' : '#ffffff88'; sourceCtx.lineWidth = 2;
+    sourceCtx.strokeRect(dx + b.left * factor, dy + b.top * factor, (b.right - b.left) * factor, (b.bottom - b.top) * factor);
+    if (state.faces.length > 1) { sourceCtx.fillStyle = '#f4f9e9'; sourceCtx.font = 'bold 18px Arial'; sourceCtx.fillText(String(i + 1), dx + b.left * factor + 5, dy + b.top * factor + 21); }
+  }
+}
+function faceButtons() {
+  $('faces-section').hidden = state.faces.length <= 1;
+  $('face-list').replaceChildren(); $('face-count').textContent = `${state.faces.length} found`;
+  state.faces.forEach((face, i) => {
+    const button = document.createElement('button'); button.className = 'face-button'; button.textContent = `Person ${i + 1}`; button.setAttribute('aria-pressed', String(i === state.selected));
+    button.addEventListener('click', () => { state.selected = i; resetFit(); faceButtons(); updateSourcePreview(); applyAutoTone(); poseInfo(); status(`Person ${i + 1} selected. Your portrait is ready to adjust or save.`); });
+    $('face-list').append(button);
+  });
+}
+async function setSource(image, label) {
+  const generation = ++state.generation;
+  state.source = image; state.rawSource = image; state.qualities = []; state.poses = []; state.faces = []; state.selected = 0; state.settings = { ...defaults }; state.toneGeneration++;
+  if (state.frame?.quality?.styleStrength) { state.settings.warmth = 0; state.settings.softness = 6; }
+  $('source-empty').hidden = true; sourceCanvas.hidden = false; $('source-tag').hidden = false; $('source-tag').textContent = label;
+  $('faces-section').hidden = true; controlsEnabled(false); $('stage-empty').hidden = true; busy(true, guestExperience ? 'Preparing your portrait…' : 'Finding your face…'); status(guestExperience ? 'Preparing your portrait…' : 'Finding your face, right here on this device…'); updateSourcePreview();
+  if (guestExperience) $('open-camera').disabled = true;
+  if (guestExperience) { guestStep('processing'); await guestFlow?.processing(); }
+  let guestPortraitReady = false;
+  try {
+    await Promise.all([engineReady, templateReady]);
+    if (generation !== state.generation) return;
+    if (engineFailed) throw new Error('The detector is unavailable.');
+    const result = await detect(image);
+    if (generation !== state.generation) return;
+    state.faces = result.landmarks.map(points => faceGeometry(points, image.width, image.height));
+    state.qualities = result.qualities;
+    state.poses = result.poses;
+    if (guestExperience && state.faces.length !== 1) throw new Error('Please take a clear photo with just one person looking straight ahead.');
+    // Start with the largest face, while retaining image-order labels.
+    if (state.faces.length) state.selected = state.faces.reduce((best, face, i, faces) => face.width * face.height > faces[best].width * faces[best].height ? i : best, 0);
+    faceButtons(); updateSourcePreview(); poseInfo(); await applyAutoTone();
+    guestPortraitReady = state.faces.length === 1;
+    status(guestExperience ? '' : state.faces.length ? `${state.faces.length === 1 ? 'Face found' : `${state.faces.length} faces found; largest selected`} · ${result.elapsed} ms detection. Your portrait is ready to adjust or save.` : 'No face was found. Try a brighter, front-facing photo, or use size and position to fit it manually.', !state.faces.length);
+  } catch (error) {
+    if (generation !== state.generation) return;
+    if (guestExperience) { state.source = null; state.rawSource = null; state.faces = []; state.qualities = []; state.poses = []; }
+    status(guestExperience ? (error.message.startsWith('Please take') ? error.message : 'Your portrait could not be prepared. Please try taking another photo.') : 'Automatic alignment is unavailable. Your photo is loaded; use the size and position controls to fit your face manually.', true);
+  } finally {
+    if (generation === state.generation) {
+      controlsEnabled(guestExperience ? guestPortraitReady : Boolean(state.frame)); busy(false); syncSettings(); setView('result');
+      if (guestExperience) { $('open-camera').disabled = engineFailed; guestStep(guestPortraitReady ? 'result' : 'choose'); }
+    }
+  }
+}
+
+async function uploadedImage(file, { frame = false } = {}) {
+  if (!file) return;
+  const allowed = frame ? ['image/png'] : ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) throw new Error(frame ? 'Choose a PNG frame.' : 'Choose a PNG, JPEG, or WebP photo. HEIC photos need to be converted first.');
+  if (file.size > 25 * 1024 * 1024) throw new Error('Please choose an image smaller than 25 MB.');
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await imageFromURL(url);
+    if (image.width * image.height > 36000000) throw new Error('Please choose an image under 36 megapixels.');
+    const limit = frame ? 4096 : 2400;
+    const factor = Math.min(1, limit / Math.max(image.width, image.height));
+    const canvas = makeCanvas(Math.round(image.width * factor), Math.round(image.height * factor));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height); return canvas;
+  } finally { URL.revokeObjectURL(url); }
+}
+$('photo-upload').addEventListener('change', async event => {
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return;
+  const generation = state.generation;
+  try { const image = await uploadedImage(file); if (generation === state.generation) await setSource(image, 'YOUR PHOTOGRAPH'); }
+  catch (error) { status(error.message, true); }
+});
+$('demo').addEventListener('click', async () => {
+  try {
+    await templateReady;
+    const demo = makeCanvas(300, 340), dctx = demo.getContext('2d');
+    // A close-up cut from the client's supplied example, never a fabricated guest.
+    dctx.drawImage(reference, reference.width * .415, reference.height * .24, reference.width * .205, reference.height * .255, 0, 0, 300, 340);
+    await setSource(demo, 'SAMPLE · SUPPLIED REFERENCE');
+  } catch (error) { status(error.message, true); }
+});
+
+function setView(view) {
+  state.view = view;
+  for (const mode of ['result', 'frame']) { $(`${mode}-view`).classList.toggle('active', view === mode); $(`${mode}-view`).setAttribute('aria-pressed', String(view === mode)); }
+  $('preview-tip').textContent = view === 'frame' ? 'Frame opening · Switch to Composite to see your face' : state.source ? 'Drag your face to fine-tune the fit' : 'Add a photograph to begin';
+  render();
+}
+$('result-view').addEventListener('click', () => setView('result'));
+$('frame-view').addEventListener('click', () => setView('frame'));
+
+let drag = null;
+portrait.addEventListener('pointerdown', event => {
+  if (guestExperience) return;
+  if (!state.frame || $('busy').hidden === false || (!state.source && !$('edit-opening').checked)) return;
+  if (state.view === 'frame' && !$('edit-opening').checked) return;
+  const rect = portrait.getBoundingClientRect();
+  drag = { startX: event.clientX, startY: event.clientY, x: state.settings.x, y: state.settings.y,
+    bounds: { ...state.frame.bounds }, factor: portrait.width / rect.width };
+  portrait.setPointerCapture(event.pointerId); portrait.focus(); event.preventDefault();
+});
+portrait.addEventListener('pointermove', event => {
+  if (!drag) return;
+  const dx = (event.clientX - drag.startX) * drag.factor, dy = (event.clientY - drag.startY) * drag.factor;
+  if (state.frame.custom && $('edit-opening').checked) {
+    const b = drag.bounds, width = b.right - b.left, height = b.bottom - b.top;
+    const left = clamp(b.left + dx, 0, portrait.width - width), top = clamp(b.top + dy, 0, portrait.height - height);
+    state.frame.bounds = { left, top, right: left + width, bottom: top + height }; rebuildCustomOpening();
+  } else {
+    state.settings.x = clamp(Math.round(drag.x + dx), Number($('x').min), Number($('x').max));
+    state.settings.y = clamp(Math.round(drag.y + dy), Number($('y').min), Number($('y').max)); syncSettings(); render();
+  }
+});
+for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) portrait.addEventListener(event, () => { drag = null; });
+portrait.addEventListener('keydown', event => {
+  if (guestExperience) return;
+  if (!state.source || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+  event.preventDefault(); const step = event.shiftKey ? 10 : 1;
+  if (event.key === 'ArrowLeft') state.settings.x -= step;
+  if (event.key === 'ArrowRight') state.settings.x += step;
+  if (event.key === 'ArrowUp') state.settings.y -= step;
+  if (event.key === 'ArrowDown') state.settings.y += step;
+  for (const id of ['x', 'y']) state.settings[id] = clamp(state.settings[id], Number($(id).min), Number($(id).max));
+  syncSettings(); setView('result');
+});
+
+$('download').addEventListener('click', () => {
+  if (!state.source) return;
+  const view = state.view, guide = $('edit-opening').checked; state.view = 'result'; $('edit-opening').checked = false; render();
+  const format = $('export-format').value, extension = format === 'image/png' ? 'png' : 'jpg';
+  portrait.toBlob(blob => {
+    if (!blob) { status('Your portrait could not be exported. Please try again.', true); return; }
+    const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url;
+    link.download = `misrah-portrait-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`;
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+    status(guestExperience ? 'Your photo has been saved to your downloads.' : 'Your portrait is ready. Check your browser’s downloads.');
+  }, format, .95);
+  state.view = view; $('edit-opening').checked = guide; render();
+});
+
+// Custom frames support one enclosed transparent opening, or a movable oval.
+let customRevision = 0;
+async function loadCustomFrame(image) {
+  const sampleScale = Math.min(1, 700 / Math.max(image.width, image.height));
+  const small = makeCanvas(Math.round(image.width * sampleScale), Math.round(image.height * sampleScale)), sctx = small.getContext('2d');
+  sctx.drawImage(image, 0, 0, small.width, small.height);
+  const found = findTransparentOpening(sctx.getImageData(0, 0, small.width, small.height).data, small.width, small.height);
+  let bounds = found ? { left: found.left / sampleScale, top: found.top / sampleScale, right: found.right / sampleScale, bottom: found.bottom / sampleScale } :
+    { left: image.width * .4, top: image.height * .23, right: image.width * .6, bottom: image.height * .52 };
+  state.frame = { image, name: 'Your frame', custom: true, bounds, target: targetForOpening(bounds), layer: makeCanvas(image.width, image.height), mask: makeCanvas(image.width, image.height), revision: ++customRevision, transparent: Boolean(found) };
+  setCanvasSize(); $('custom-tools').hidden = Boolean(found); $('edit-opening').checked = !found;
+  for (const button of $('scene-list').querySelectorAll('.frame-card')) {
+    button.classList.remove('selected'); button.querySelector('.check').hidden = true;
+  }
+  if (found) {
+    const f = state.frame, maskctx = f.mask.getContext('2d');
+    // Preserve the supplied alpha contour only around the enclosed opening.
+    const pixels = sctx.getImageData(0, 0, small.width, small.height);
+    for (let y = 0; y < small.height; y++) for (let x = 0; x < small.width; x++) {
+      const i = (y * small.width + x) * 4;
+      pixels.data[i + 3] = x >= found.left - 1 && x <= found.right && y >= found.top - 1 && y <= found.bottom ? 255 - pixels.data[i + 3] : 0;
+      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = 255;
+    }
+    sctx.putImageData(pixels, 0, 0); maskctx.drawImage(small, 0, 0, image.width, image.height); f.layer.getContext('2d').drawImage(image, 0, 0);
+  } else rebuildCustomOpening();
+  updateOpeningSliders(); resetFit(); applyAutoTone(); poseInfo(); setView('result');
+  status(found ? 'Transparent face opening found. Its contour is preserved. Add a photo or use the face controls to adjust your fit.' : 'Frame loaded. Drag the highlighted oval onto the face area and resize it, then turn off “Adjust frame opening”.');
+}
+function updateOpeningSliders() {
+  const f = state.frame, b = f.bounds;
+  for (const [id, value] of [['opening-width', (b.right - b.left) / f.image.width * 100], ['opening-height', (b.bottom - b.top) / f.image.height * 100]]) {
+    $(id).value = value; $(`${id}-value`).textContent = `${Math.round(value)}%`;
+  }
+}
+function rebuildCustomOpening() {
+  const f = state.frame, b = f.bounds; if (!f.custom) return;
+  const mctx = f.mask.getContext('2d'), lctx = f.layer.getContext('2d');
+  mctx.clearRect(0, 0, f.image.width, f.image.height); mctx.fillStyle = 'white';
+  mctx.beginPath(); mctx.ellipse((b.left + b.right) / 2, (b.top + b.bottom) / 2, (b.right - b.left) / 2, (b.bottom - b.top) / 2, 0, 0, Math.PI * 2); mctx.fill();
+  lctx.clearRect(0, 0, f.image.width, f.image.height); lctx.drawImage(f.image, 0, 0);
+  lctx.globalCompositeOperation = 'destination-out'; lctx.drawImage(f.mask, 0, 0); lctx.globalCompositeOperation = 'source-over';
+  f.target = targetForOpening(b); f.revision = ++customRevision; f.transparent = false; render();
+}
+$('frame-upload').addEventListener('change', async event => {
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return;
+  try { const image = await uploadedImage(file, { frame: true }); await templateReady; await loadCustomFrame(image); }
+  catch (error) { status(error.message, true); }
+});
+$('edit-opening').addEventListener('change', () => { if ($('edit-opening').checked) rebuildCustomOpening(); render(); });
+for (const id of ['opening-width', 'opening-height']) $(id).addEventListener('input', () => {
+  const f = state.frame, b = f.bounds, cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2;
+  const width = f.image.width * Number($('opening-width').value) / 100, height = f.image.height * Number($('opening-height').value) / 100;
+  const left = clamp(cx - width / 2, 0, f.image.width - width), top = clamp(cy - height / 2, 0, f.image.height - height);
+  f.bounds = { left, top, right: left + width, bottom: top + height }; updateOpeningSliders(); rebuildCustomOpening();
+});
+$('heritage-frame').addEventListener('click', async () => {
+  await templateReady; selectScene(builtIn, 'heritage-frame'); status(guestExperience ? '' : 'The artisan scene selected.'); if (guestExperience) guestFlow?.start();
+});
+
+// Live capture owns the stream, cancellation, pacing, quality gates and preview.
+const liveReady = engineReady.then(() => { if (engineFailed) throw new Error('The local detector is unavailable. Refresh to retry.'); });
+liveReady.catch(() => {});
+const liveCamera = new LiveCamera({ detect, ready: liveReady, getFrame: () => state.frame,
+  onClose: captured => { if (guestExperience && !captured) guestFlow?.cancel(); },
+  canCapture: () => !guestExperience || document.body.dataset.step === 'camera',
+  capture: setSource, getSample: async () => {
+    await liveReady;
+    const guest = testGuests.get($('sample-person').value);
+    return guest?.sample || state.frame.sample || builtIn.sample;
+  } });
+$('sample-person').addEventListener('change', () => { if ($('camera-dialog').open) liveCamera.open({ sample: true }); });
+if (!guestExperience) $('open-camera').addEventListener('click', () => liveCamera.open());
+$('live-correction').addEventListener('change', () => { $('auto-tone').checked = $('live-correction').checked; });
+
+async function resetSession(destination = 'choose') {
+  const previousFrame = state.frame, previousId = $('scene-list').querySelector('.selected')?.id;
+  state.generation++; state.toneGeneration++; liveCamera.close(); busy(false); state.source = null; state.rawSource = null; state.qualities = []; state.poses = []; state.faces = []; state.selected = 0; state.settings = { ...defaults };
+  faceLayer.getContext('2d').clearRect(0, 0, faceLayer.width, faceLayer.height);
+  $('source-empty').hidden = false; sourceCanvas.hidden = true; sourceCtx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height); $('source-tag').hidden = true; $('faces-section').hidden = true; $('face-list').replaceChildren();
+  $('photo-upload').value = ''; $('frame-upload').value = ''; controlsEnabled(false); syncSettings();
+  await templateReady; state.frame = builtIn; $('custom-tools').hidden = true; $('edit-opening').checked = false;
+  const nextId = guestExperience && previousId ? previousId : clientFrames.has('frontal-weaver') ? 'frontal-weaver' : 'heritage-frame';
+  selectScene(guestExperience && previousId ? previousFrame : clientFrames.get(nextId) || builtIn, nextId); setView('result'); $('tone-info').textContent = 'Gentle corrections preserve your complexion.'; status(guestExperience ? '' : 'A fresh start. Your previous guest photo has been cleared from the app.'); guestStep(destination);
+}
+if (guestExperience) guestFlow = createGuestFlow({ camera: liveCamera, clear: resetSession,
+  printImage: () => { render(); return portrait.toDataURL('image/jpeg', .98); }, hasPhoto: () => Boolean(state.source && state.faces.length === 1 && !$('print-photo').disabled) });
+else $('new-session').addEventListener('click', () => resetSession());
+$('help').addEventListener('click', () => $('help-dialog').showModal());
+$('close-help').addEventListener('click', () => $('help-dialog').close());
+syncSettings();
+// A labelled, static sample URL is useful for sharing a client preview. It never
+// requests a webcam or presents the fictional test person as a captured guest.
+if (guestExperience) {
+  const params = new URLSearchParams(location.search), sampleId = { woman: 'frontal-guest-woman', man: 'frontal-guest-man', bearded: 'frontal-guest-bearded' }[params.get('sample')];
+  if (sampleId) engineReady.then(async () => {
+    const guest = testGuests.get(sampleId); if (!guest) return;
+    const sceneId = params.get('scene'); if (clientFrames.has(sceneId)) selectScene(clientFrames.get(sceneId), sceneId);
+    await setSource(guest.image, `AI TEST · ${guest.name.toUpperCase()} · STRAIGHT ON`);
+  }).catch(() => {});
+}

@@ -1,0 +1,27 @@
+MediaPipe Tasks Vision 1.1.1
+Copyright Google LLC and MediaPipe contributors.
+Source: https://github.com/google-ai-edge/mediapipe
+Package: https://registry.npmjs.org/@mediapipe/tasks-vision/-/tasks-vision-1.1.1.tgz
+License: Apache License, Version 2.0. See public/vendor/LICENSE.
+Bundled JavaScript and WebAssembly runtime files are unmodified copies.
+
+Face Landmarker model bundle
+Source: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+Documentation: https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker
+Model bundle is unmodified. No generative identity face-swap weights are included.
+
+Heritage frame and demonstration portrait
+Supplied by the user as project references. Their inclusion does not grant new
+rights to the artwork or the depicted person's likeness.
+
+Misrah client artwork
+The three misrah-*.png assets are images extracted from the user-supplied
+Photo Frame_Misrah.pdf. The source PDF was not modified. Brand artwork, scene
+photography and sample faces remain client-provided reference material.
+
+Generated frontal test assets
+The five public/assets/frontal/*.png files were created using the built-in Image
+Generation tool on 19 October 2026. They depict fictional adults and new test
+scenes, not client-approved artwork. Exact prompts and paths are recorded in
+qa/frontal-generation-prompts.json. No model weights are needed to use these
+static test assets in the offline app.

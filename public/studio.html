@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171b18">
+  <title>Misrah Studio · Live local photobooth</title>
+  <meta name="description" content="A private, offline photobooth. Capture a face, step into a heritage portrait, and save your photograph.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23171b18'/%3E%3Cpath d='M18 18h28v28H18zM25 10h14M25 54h14M10 25v14M54 25v14' fill='none' stroke='%23c8aa71' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Misrah Studio home"><span class="brand-mark">✧</span><span>MISRAH <b>STUDIO</b><small>A moment. A memory. A little history.</small></span></a>
+    <div class="top-actions"><span class="local-pill"><span></span> PRIVATE & LOCAL</span><button id="help" class="icon-button" aria-label="How it works">?</button></div>
+  </header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">THE PORTRAIT EXPERIENCE</p><h1>Step into another time.</h1><p>Live guidance. A perfect little moment.</p></div><div class="session-label"><span class="small-dot"></span> LOCAL PHOTOBOOTH <span class="version">FRONTAL / 03</span></div></div>
+    <div class="studio">
+      <aside class="source-panel panel">
+        <div class="section-heading"><span class="step">01</span><h2>Your photograph</h2></div>
+        <p class="muted intro">Start with a smile. We’ll find your face.</p>
+        <div class="source-preview" id="source-preview">
+          <canvas id="source-canvas" width="560" height="440" hidden aria-label="Your photograph with detected faces"></canvas>
+          <div id="source-empty"><div class="portrait-icon"><svg viewBox="0 0 60 60" aria-hidden="true"><path d="M12 21v-9h9m18 0h9v9m0 18v9h-9m-18 0h-9v-9"/><ellipse cx="30" cy="25" rx="8" ry="10"/><path d="M17 45c0-15 26-15 26 0"/></svg></div><p>A portrait begins with you</p><span>Camera or a favourite photo</span></div>
+          <span id="source-tag" class="source-tag" hidden>PHOTO READY</span>
+        </div>
+        <button id="open-camera" class="button primary wide"><span class="camera-icon" aria-hidden="true">▣</span> Open live camera</button>
+        <label class="button secondary wide upload-label" for="photo-upload"><span aria-hidden="true">↑</span> Upload a photo</label>
+        <input id="photo-upload" type="file" accept="image/jpeg,image/png,image/webp" class="file-input">
+        <button id="demo" class="text-button wide">Just exploring? Try the sample <span aria-hidden="true">↗</span></button>
+        <button id="live-test" class="text-button wide">Test live guidance with a sample ↗</button>
+        <div class="test-guests" aria-label="Straight-on generated test faces">
+          <div class="mini-heading">STRAIGHT-ON TEST FACES <span>AI</span></div>
+          <div class="guest-grid">
+            <button id="frontal-guest-woman" class="guest-card" disabled aria-pressed="false"><img src="assets/frontal/frontal-guest-woman.png" alt="Generated frontal woman test portrait"><span>Woman</span></button>
+            <button id="frontal-guest-man" class="guest-card" disabled aria-pressed="false"><img src="assets/frontal/frontal-guest-man.png" alt="Generated frontal man test portrait"><span>Man</span></button>
+            <button id="frontal-guest-bearded" class="guest-card" disabled aria-pressed="false"><img src="assets/frontal/frontal-guest-bearded.png" alt="Generated frontal bearded man test portrait"><span>Bearded man</span></button>
+          </div>
+          <p id="guest-status" class="muted">Preparing straight-on test faces…</p>
+        </div>
+        <div id="faces-section" hidden><div class="mini-heading">CHOOSE A FACE <span id="face-count"></span></div><div id="face-list" class="face-list"></div></div>
+        <div class="divider"></div>
+        <div class="section-heading"><span class="step">02</span><h2>Choose your scene</h2></div>
+        <div id="scene-list" class="scene-list">
+          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/frontal/frontal-weaver.png" alt="Generated straight-on weaver scene"><span><strong>Frontal weaver</strong><small>AI frontal test · 01</small></span><span class="check" hidden>✓</span></button>
+          <button id="frontal-pearl-trader" class="frame-card" disabled><img src="assets/frontal/frontal-pearl-trader.png" alt="Generated straight-on pearl trader scene"><span><strong>Frontal pearl trader</strong><small>AI frontal test · 02</small></span><span class="check" hidden>✓</span></button>
+          <button id="misrah-1" class="frame-card" disabled><img src="assets/misrah-1.png" alt="Misrah pearling portrait"><span><strong>The pearl trader</strong><small>Misrah collection · 01</small></span><span class="check" hidden>✓</span></button>
+          <button id="misrah-2" class="frame-card" disabled><img src="assets/misrah-2.png" alt="Misrah basket-weaving portrait"><span><strong>The weaver</strong><small>Misrah collection · 02</small></span><span class="check" hidden>✓</span></button>
+          <button id="misrah-3" class="frame-card" disabled><img src="assets/misrah-3.png" alt="Misrah woven arch portrait"><span><strong>The woven arch</strong><small>Misrah collection · 03</small></span><span class="check" hidden>✓</span></button>
+          <button id="heritage-frame" class="frame-card selected"><img src="assets/heritage-frame.png" alt="Traditional basket weaving portrait"><span><strong>The artisan</strong><small>Original sample · 04</small></span><span class="check">✓</span></button>
+        </div>
+        <p id="template-status" class="muted">Preparing frontal and client scenes locally…</p>
+        <label class="add-frame" for="frame-upload"><span>＋</span> Add your own frame <small>PNG with a transparent face opening</small></label>
+        <input id="frame-upload" type="file" accept="image/png" class="file-input">
+        <p class="privacy-note"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 9V6a5 5 0 0 1 10 0v3M3 9h14v9H3z"/></svg><span>Only on this device.<br>Your photos are never uploaded.</span></p>
+      </aside>
+      <section class="preview-panel" aria-label="Portrait preview">
+        <div class="preview-heading"><span>YOUR PORTRAIT</span><div class="view-switch" role="group" aria-label="Preview mode"><button id="result-view" class="active" aria-pressed="true">Composite</button><button id="frame-view" aria-pressed="false">Frame</button></div></div>
+        <div class="stage" id="stage"><div class="portrait-wrap"><canvas id="portrait" width="1312" height="1199" tabindex="0" aria-label="Portrait preview. Drag to position your face. Arrow keys move it; hold Shift for larger steps."></canvas><span class="stage-corner tl"></span><span class="stage-corner tr"></span><span class="stage-corner bl"></span><span class="stage-corner br"></span></div><div id="stage-empty" class="stage-note"><span>✧</span> Your story goes here</div><div id="busy" class="busy" hidden><span class="spinner"></span><span id="busy-label">Finding your face…</span></div></div>
+        <div class="preview-caption"><span id="preview-tip">Add a photograph to begin</span><span id="dimensions">1312 × 1199 px</span></div>
+        <p id="pose-info" class="pose-info" hidden></p>
+        <div class="preview-footer"><span class="little-star">✳</span><p>Old-world charm.<br><span>A new memory, made by you.</span></p><span class="collection-label">THE HERITAGE<br>COLLECTION</span></div>
+      </section>
+      <aside class="adjust-panel panel">
+        <div class="section-heading"><span class="step">03</span><h2>Make it yours</h2></div>
+        <p class="muted intro">A few small touches. The perfect fit.</p>
+        <fieldset id="face-controls" disabled>
+          <div class="control-title"><span>FACE POSITION</span><button id="auto-fit" class="text-button">↗ Auto fit</button></div>
+          <div class="slider-row"><label for="scale">Size</label><output id="scale-value">100%</output><input id="scale" type="range" min="55" max="190" value="100"></div>
+          <div class="slider-row"><label for="x">Horizontal</label><output id="x-value">0</output><input id="x" type="range" min="-160" max="160" value="0"></div>
+          <div class="slider-row"><label for="y">Vertical</label><output id="y-value">0</output><input id="y" type="range" min="-160" max="160" value="0"></div>
+          <div class="slider-row"><label for="rotation">Rotation</label><output id="rotation-value">0°</output><input id="rotation" type="range" min="-45" max="45" value="0"></div>
+          <button id="flip" class="button secondary wide compact" aria-pressed="false">⇄ &nbsp; Mirror face</button>
+          <div class="divider"></div>
+          <div class="control-title"><span>FINISHING TOUCHES</span><span class="tiny-star">✧</span></div>
+          <label class="checkbox-label auto-tone-label"><input id="auto-tone" type="checkbox" checked> Automatic colour & exposure</label>
+          <p id="tone-info" class="muted">Gentle corrections preserve your complexion.</p>
+          <div class="slider-row"><label for="warmth">Vintage warmth</label><output id="warmth-value">30%</output><input id="warmth" type="range" min="0" max="100" value="30"></div>
+          <div class="slider-row"><label for="brightness">Face brightness</label><output id="brightness-value">100%</output><input id="brightness" type="range" min="55" max="155" value="100"></div>
+          <div class="slider-row"><label for="softness">Soften edges</label><output id="softness-value">2 px</output><input id="softness" type="range" min="0" max="8" step="0.5" value="2"></div>
+          <p class="adjust-hint">You can also drag the face directly<br>on your portrait.</p>
+        </fieldset>
+        <div id="custom-tools" hidden><div class="divider"></div><label class="checkbox-label"><input id="edit-opening" type="checkbox"> Adjust frame opening</label><p class="muted">Drag the opening into place, then resize it.</p><div class="slider-row"><label for="opening-width">Opening width</label><output id="opening-width-value"></output><input id="opening-width" type="range" min="2" max="90" step="0.5"></div><div class="slider-row"><label for="opening-height">Opening height</label><output id="opening-height-value"></output><input id="opening-height" type="range" min="2" max="95" step="0.5"></div></div>
+        <div class="export-area"><label for="export-format" class="mini-heading">TAKE YOUR MEMORY WITH YOU</label><select id="export-format"><option value="image/png">PNG · Original quality</option><option value="image/jpeg">JPEG · Smaller file</option></select><button id="download" class="button primary wide" disabled><span aria-hidden="true">↓</span> Save portrait</button><button id="new-session" class="text-button wide">↻ &nbsp; Start fresh</button></div>
+      </aside>
+    </div>
+    <footer class="page-footer"><span><span id="model-dot" class="small-dot loading"></span><span id="model-status">Loading local face detector…</span></span><span>NO CLOUD. JUST A LITTLE CAMERA MAGIC.</span></footer>
+    <p id="status" class="status" role="status" aria-live="polite">Choose the camera, upload a photo, or try the sample.</p>
+  </main>
+  <dialog id="camera-dialog">
+    <div class="dialog-heading"><div><p id="live-mode" class="eyebrow">LIVE CAMERA · ON THIS DEVICE</p><h2>Your moment, beautifully framed.</h2></div><button id="close-camera" class="icon-button" aria-label="Close camera">×</button></div>
+    <p id="camera-guidance" class="camera-guidance" role="status" aria-live="polite">Starting the camera…</p>
+    <div class="live-grid">
+      <div><div class="live-column-heading">YOU, LIVE <span>Mirrored camera view</span></div><div class="camera-stage"><video id="camera-video" autoplay playsinline muted></video><div class="camera-guide"></div></div><div id="live-checks" class="live-checks" aria-label="Live capture quality checks"></div></div>
+      <div><div class="live-column-heading">YOUR PORTRAIT <span>Automatic alignment & tone</span></div><div class="live-composite-wrap"><canvas id="live-composite" width="480" height="439" aria-label="Live portrait composite"></canvas></div></div>
+    </div>
+    <progress id="hold-progress" value="0" max="1" aria-label="Steady pose progress"></progress>
+    <p id="camera-status" role="status">Starting your camera…</p>
+    <div class="camera-actions"><label>Camera <select id="camera-select" aria-label="Select camera"></select></label><label class="checkbox-label"><input id="auto-capture" type="checkbox" checked> Auto capture</label><label class="checkbox-label"><input id="live-correction" type="checkbox" checked> Auto tone</label><label>Performance<select id="live-rate" aria-label="Live guidance rate"><option value="10">Balanced · 10 checks/sec</option><option value="15">Fast · 15 checks/sec</option><option value="5">Low power · 5 checks/sec</option></select></label><button id="capture" class="button primary" disabled>Capture now</button></div>
+    <div id="sample-controls" class="sample-controls" hidden><label>Test person <select id="sample-person"><option value="frontal-guest-woman">Generated woman</option><option value="frontal-guest-man">Generated man</option><option value="frontal-guest-bearded">Generated bearded man</option><option value="reference">Scene's original face</option></select></label><label>Simulated condition <select id="sample-condition"><option value="good">Clear & steady</option><option value="dark">Too dark</option><option value="blur">Out of focus</option><option value="motion">Moving</option><option value="multiple">Two faces</option><option value="no-face">No face</option></select></label><p>This is a simulated stream from the selected test portrait. Generated people are fictional; no webcam is used.</p></div>
+    <p id="live-telemetry" class="live-telemetry">Waiting for the camera</p>
+  </dialog>
+  <dialog id="help-dialog"><div class="dialog-heading"><h2>Your own little time machine.</h2><button id="close-help" class="icon-button" aria-label="Close help">×</button></div><ol class="help-steps"><li><strong>Choose your scene.</strong> The two AI frontal scenes are designed for guests facing the camera directly. The three original Misrah designs remain available for comparison.</li><li><strong>Open the live camera.</strong> Follow the face, position, angle, light, focus and steadiness checks. Auto capture takes the portrait after a suitable pose stays steady for 1.4 seconds. Capture now is a manual override.</li><li><strong>Make it yours.</strong> Automatic tone gently adjusts exposure and colour balance. Size, rotation, brightness and warmth remain adjustable. Save a PNG or JPEG at the frame’s original resolution.</li></ol><p class="help-note">Choose a straight-on AI test face to insert it immediately. Test live guidance with a sample lets you select a separate generated guest or the scene’s original face, plus dark, blurred, moving and multiple-face conditions. It uses the actual local detector and capture policy, without a webcam.</p><p class="help-note">This MVP aligns a real face to a prepared opening. Large head turns and strong shadows require a better capture. Automatic tone is bounded colour and exposure correction; it does not synthesize a new light direction or hidden facial detail.</p><p class="help-note">Quality thresholds are starting values for event calibration. Camera permissions, webcam autofocus, and live checks should be tested on the event computer. Everything runs locally; no internet connection or account is required. Use Chrome or Edge.</p></dialog>
+</body>
+</html>
