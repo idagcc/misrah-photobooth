@@ -105,6 +105,14 @@ The old preparation studio remains at `/studio.html` for diagnostics, separate f
 
 ## Development and verification
 
+### Optional pose correction experiment
+
+Open `/pose-demo.html` for a before/after comparison using reference samples or a photo processed on this device. `/?pose=correct` enables the experiment for real camera captures; `/studio.html?pose=correct` exposes a checkbox to compare it with the original fit. Ordinary booth links keep the existing capture flow. The 3 → 2 → 1 sequence still takes the photo as 1 appears.
+
+After capture, the worker gently reprojects the guest's measured face surface toward the portrait's head angle and resamples that same photo. It keeps the outer contour fixed and tapers the adjustment toward it. Eye alignment and colour matching then produce the finished portrait. This can reduce small yaw/pitch differences; it does not reconstruct a hidden cheek, fix blur or guarantee a fully frontal face. Large or unstable corrections retain the original. Camera pose limits remain in place.
+
+Run `node scripts/verify-pose-correction.mjs` with the same browser environment variables below. It checks five samples, measured pose changes, the actual studio compositor, exact undo, worker failure/stale-result fallback, mobile layout and normal/native-4K simulated guest capture. Results and timing limits are in `qa/pose-correction-verification.md`. The previous capture implementation is preserved in commit `362d5c1`; the pose trial is a separate working-tree change on `experiment`.
+
 `npm ci --ignore-scripts` restores the pinned MediaPipe development dependency. Runtime resources are already bundled. Run:
 
 ```

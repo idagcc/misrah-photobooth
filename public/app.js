@@ -14,7 +14,9 @@ const portrait = $('portrait'), ctx = portrait.getContext('2d');
 const sourceCanvas = $('source-canvas'), sourceCtx = sourceCanvas.getContext('2d');
 const defaults = { scale: 100, x: 0, y: 0, rotation: 0, warmth: 30, brightness: 100, softness: 2, flip: false };
 const state = { settings: { ...defaults }, source: null, faces: [], selected: 0, frame: null,
-  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [] };
+  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [], landmarks: [] };
+// Opt-in while evaluating the still-photo experiment; ordinary booth links keep the committed capture flow.
+if (new URLSearchParams(location.search).get('pose') === 'correct') $('pose-correction').checked = true;
 const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 const imageFromURL = url => new Promise((resolve, reject) => {
   const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('This image could not be opened. Use a PNG, JPEG, or WebP photo.')); image.src = url;
@@ -273,10 +275,11 @@ async function applyAutoTone() {
   const token = ++state.toneGeneration, generation = state.generation;
   if (!state.rawSource) return;
   state.source = state.rawSource;
+  state.faces = state.landmarks.map(points => faceGeometry(points, state.rawSource.width, state.rawSource.height));
   const q = state.qualities[state.selected];
   if (!$('auto-tone').checked || !q || engineFailed) {
     $('tone-info').textContent = $('auto-tone').checked ? 'Automatic tone needs a detected face.' : 'Original colour retained. Manual controls remain available.';
-    updateSourcePreview(); render(); return;
+    await applyPoseCorrection(token, generation); updateSourcePreview(); render(); return;
   }
   try {
     $('download').disabled = true;
@@ -288,12 +291,36 @@ async function applyAutoTone() {
       const corrected = makeCanvas(result.corrected.width, result.corrected.height);
       corrected.getContext('2d').drawImage(result.corrected, 0, 0); state.source = corrected;
       $('tone-info').textContent = `Auto tone applied · Exposure ${Math.round(correction.exposure * 100)}% · Gentle white balance`;
+      await applyPoseCorrection(token, generation);
+      if (token !== state.toneGeneration || generation !== state.generation) return;
       updateSourcePreview(); render();
     } finally { result.corrected.close(); }
   } catch (error) { if (token === state.toneGeneration) $('tone-info').textContent = 'Automatic tone unavailable. Manual adjustments still work.'; }
   finally { if (token === state.toneGeneration && generation === state.generation) $('download').disabled = false; }
 }
 $('auto-tone').addEventListener('change', applyAutoTone);
+$('pose-correction').addEventListener('change', applyAutoTone);
+async function applyPoseCorrection(token, generation) {
+  const label = $('pose-correction-info');
+  if (!$('pose-correction').checked || !state.landmarks[state.selected] || !state.frame?.pose || engineFailed) {
+    if (label) label.textContent = 'Try a gentle correction after capture. Original capture is retained.';
+    return;
+  }
+  try {
+    const result = await requestWorker({ type: 'pose-correct', landmarks: state.landmarks[state.selected],
+      pose: state.poses[state.selected], targetPose: state.frame.pose }, await createImageBitmap(state.source));
+    try {
+      if (token !== state.toneGeneration || generation !== state.generation) return;
+      if (result.poseCorrection.applied) {
+        const corrected = makeCanvas(result.corrected.width, result.corrected.height);
+        corrected.getContext('2d').drawImage(result.corrected, 0, 0); state.source = corrected;
+        state.faces[state.selected] = faceGeometry(result.landmarks, corrected.width, corrected.height);
+      }
+      if (label) label.textContent = result.poseCorrection.applied ? `Small head turn and tilt adjusted after capture · ${Math.round(result.poseCorrection.elapsed)} ms` :
+        result.poseCorrection.reason === 'already-aligned' ? 'Face already aligned. Original pixels retained.' : 'Original retained. A straighter capture will give a better result.';
+    } finally { result.corrected.close(); }
+  } catch { if (label && token === state.toneGeneration) label.textContent = 'Correction unavailable. Original capture retained.'; }
+}
 
 function setCanvasSize() {
   portrait.width = state.frame.image.width; portrait.height = state.frame.image.height;
@@ -392,7 +419,7 @@ function faceButtons() {
 }
 async function setSource(image, label, measuredDetection = null) {
   const generation = ++state.generation;
-  state.source = image; state.rawSource = image; state.qualities = []; state.poses = []; state.faces = []; state.selected = 0; state.settings = { ...defaults }; state.toneGeneration++;
+  state.source = image; state.rawSource = image; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults }; state.toneGeneration++;
   if (state.frame?.quality?.styleStrength) { state.settings.warmth = 0; state.settings.softness = 6; }
   $('source-empty').hidden = true; sourceCanvas.hidden = false; $('source-tag').hidden = false; $('source-tag').textContent = label;
   $('faces-section').hidden = true; controlsEnabled(false); $('stage-empty').hidden = true; busy(true, guestExperience ? 'Preparing your portrait…' : 'Finding your face…'); status(guestExperience ? 'Preparing your portrait…' : 'Finding your face, right here on this device…'); updateSourcePreview();
@@ -408,6 +435,7 @@ async function setSource(image, label, measuredDetection = null) {
     const result = measuredDetection || await detect(image);
     if (generation !== state.generation) return;
     state.faces = result.landmarks.map(points => faceGeometry(points, image.width, image.height));
+    state.landmarks = result.landmarks;
     state.qualities = result.qualities;
     state.poses = result.poses;
     if (guestExperience && state.faces.length !== 1) throw new Error('Please take a clear photo with just one person looking straight ahead.');
@@ -423,7 +451,7 @@ async function setSource(image, label, measuredDetection = null) {
     status(guestExperience ? archiveWarning : state.faces.length ? `${state.faces.length === 1 ? 'Face found' : `${state.faces.length} faces found; largest selected`} · ${result.elapsed} ms detection. Your portrait is ready to adjust or save.` : 'No face was found. Try a brighter, front-facing photo, or use size and position to fit it manually.', Boolean(archiveWarning) || !state.faces.length);
   } catch (error) {
     if (generation !== state.generation) return;
-    if (guestExperience) { state.source = null; state.rawSource = null; state.faces = []; state.qualities = []; state.poses = []; }
+    if (guestExperience) { state.source = null; state.rawSource = null; state.faces = []; state.qualities = []; state.poses = []; state.landmarks = []; }
     status(guestExperience ? (error.message.startsWith('Please take') ? error.message : 'Your portrait could not be prepared. Please try taking another photo.') : 'Automatic alignment is unavailable. Your photo is loaded; use the size and position controls to fit your face manually.', true);
   } finally {
     if (generation === state.generation) {
@@ -600,7 +628,7 @@ $('live-correction').addEventListener('change', () => { $('auto-tone').checked =
 
 async function resetSession(destination = 'choose') {
   const previousFrame = state.frame, previousId = state.frame?.id || $('scene-list').querySelector('.selected')?.id;
-  state.generation++; state.toneGeneration++; liveCamera.close(); busy(false); state.source = null; state.rawSource = null; state.qualities = []; state.poses = []; state.faces = []; state.selected = 0; state.settings = { ...defaults };
+  state.generation++; state.toneGeneration++; liveCamera.close(); busy(false); state.source = null; state.rawSource = null; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults };
   faceLayer.getContext('2d').clearRect(0, 0, faceLayer.width, faceLayer.height);
   $('source-empty').hidden = false; sourceCanvas.hidden = true; sourceCtx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height); $('source-tag').hidden = true; $('faces-section').hidden = true; $('face-list').replaceChildren();
   $('photo-upload').value = ''; $('frame-upload').value = ''; controlsEnabled(false); syncSettings();

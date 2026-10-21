@@ -1,9 +1,12 @@
 /* Inference, quality checks and tone correction stay off the UI thread. */
 importScripts('./vendor/vision_bundle.js');
-let detector, runningMode = 'IMAGE', lastTimestamp = -1, queue = Promise.resolve(), quality, delegate = 'CPU';
+let detector, runningMode = 'IMAGE', lastTimestamp = -1, queue = Promise.resolve(), quality, poseCorrection, triangles, poseWeights, delegate = 'CPU';
 const startup = (async () => {
   try {
     quality = await import('./live-quality.js');
+    poseCorrection = await import('./pose-correction.js');
+    triangles = poseCorrection.faceTriangles(Vision.FaceLandmarker.FACE_LANDMARKS_TESSELATION);
+    poseWeights = poseCorrection.correctionWeights(triangles);
     const files = await Vision.FilesetResolver.forVisionTasks(new URL('./vendor/wasm', self.location).href);
     const options = {
       baseOptions: { modelAssetPath: new URL('./models/face_landmarker.task', self.location).href },
@@ -34,6 +37,24 @@ async function process(data) {
     const started = performance.now();
     if (frame.width !== data.bitmap.width || frame.height !== data.bitmap.height) { frame.width = data.bitmap.width; frame.height = data.bitmap.height; }
     frameCtx.drawImage(data.bitmap, 0, 0);
+    if (data.type === 'pose-correct') {
+      let warp = poseCorrection.poseWarp(data.landmarks, frame.width, frame.height, data.pose, data.targetPose, .85, poseWeights);
+      // Reduce the correction if estimated depth would fold or stretch a triangle.
+      for (const strength of [.5, .25]) {
+        if (!warp.applied || poseCorrection.safeWarp(warp, triangles)) break;
+        warp = poseCorrection.poseWarp(data.landmarks, frame.width, frame.height, data.pose, data.targetPose, strength, poseWeights);
+      }
+      if (warp.applied && !poseCorrection.safeWarp(warp, triangles)) warp = { applied: false, reason: 'unstable-depth' };
+      if (warp.applied) {
+        const pixels = frameCtx.getImageData(0, 0, frame.width, frame.height);
+        pixels.data.set(poseCorrection.warpFacePixels(pixels.data, frame.width, frame.height, warp, triangles));
+        frameCtx.putImageData(pixels, 0, 0);
+      }
+      const corrected = frame.transferToImageBitmap();
+      self.postMessage({ type: 'result', id: data.id, corrected, landmarks: warp.applied ? warp.landmarks : data.landmarks,
+        poseCorrection: { applied: warp.applied, reason: warp.reason, yaw: warp.yaw || 0, pitch: warp.pitch || 0,
+          elapsed: Math.round((performance.now() - started) * 10) / 10 } }, [corrected]); return;
+    }
     if (data.type === 'correct') {
       const pixels = frameCtx.getImageData(0, 0, frame.width, frame.height);
       quality.correctPixels(pixels.data, data.correction); frameCtx.putImageData(pixels, 0, 0);
@@ -72,4 +93,4 @@ async function process(data) {
     if (!data.live) { frame.width = 1; frame.height = 1; }
   }
 }
-self.onmessage = ({ data }) => { if (['detect', 'correct'].includes(data.type)) queue = queue.then(() => process(data)); };
+self.onmessage = ({ data }) => { if (['detect', 'correct', 'pose-correct'].includes(data.type)) queue = queue.then(() => process(data)); };

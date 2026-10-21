@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pose correction · Before &amp; after</title><link rel="stylesheet" href="./pose-demo.css"></head>
+<body><main>
+  <header><p class="eyebrow">PHOTO BOOTH · EXPERIMENT</p><h1>A little help after the shutter.</h1><p>Compare the same photo with a gentle adjustment to the head turn and tilt.</p></header>
+  <div class="toolbar"><label>Try a sample <select id="sample"><option value="misrah-2">Weaver · small turn and tilt</option><option value="misrah-1">Pearl trader · small turn</option><option value="frontal/frontal-guest-woman">Straight face · woman</option><option value="frontal/frontal-guest-man">Straight face · man</option><option value="frontal/frontal-guest-bearded">Straight face · bearded man</option></select></label><label class="upload">Try your photo<input id="photo" type="file" accept="image/png,image/jpeg,image/webp"></label><a class="primary" href="./?pose=correct">Try it with the camera ↗</a></div>
+  <p id="status" role="status" aria-live="polite">Loading the local face detector…</p>
+  <div class="comparison" aria-label="Before and after pose correction">
+    <section><div class="card-heading"><h2>Before</h2><span>Current automatic fit</span></div><canvas id="before-face" width="440" height="470" aria-label="Face before correction"></canvas><p class="angle" id="before-angle"></p><details open><summary>Full portrait</summary><canvas id="before" aria-label="Portrait before correction"></canvas></details></section>
+    <section><div class="card-heading"><h2>After</h2><span>Gentle pose correction</span></div><canvas id="after-face" width="440" height="470" aria-label="Face after correction"></canvas><p class="angle" id="after-angle"></p><details open><summary>Full portrait</summary><canvas id="after" aria-label="Portrait after correction"></canvas></details></section>
+  </div>
+  <footer><p>Uses the captured photo’s pixels. Small turns can be adjusted; a large sideways turn still needs a retake. The camera’s 3 → 2 → 1 countdown stays the same.</p><p>Sample artwork is from the project’s reference images. Straight-face samples depict fictional adults. Your upload is processed on this device.</p><a href="./studio.html?pose=correct">Open the adjustment studio ↗</a></footer>
+</main><script type="module" src="./pose-demo.js"></script></body></html>

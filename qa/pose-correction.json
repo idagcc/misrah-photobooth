@@ -1,0 +1,177 @@
+{
+  "samples": [
+    {
+      "name": "misrah-2",
+      "before": {
+        "yaw": -11.884634751360187,
+        "pitch": 8.42192595307017,
+        "roll": 15.26221053408882
+      },
+      "after": {
+        "yaw": -9.116710785682786,
+        "pitch": 7.2341791139353795,
+        "roll": 15.704709727288595
+      },
+      "target": {
+        "yaw": -0.3543255082223771,
+        "pitch": 8.514259825310772,
+        "roll": 1.1908454549331857
+      },
+      "correction": {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": 9.899173809324742,
+        "pitch": -0.07818105547094634,
+        "elapsed": 8.1
+      }
+    },
+    {
+      "name": "misrah-1",
+      "before": {
+        "yaw": 8.084235339962186,
+        "pitch": 2.895989334971039,
+        "roll": -18.150290224072066
+      },
+      "after": {
+        "yaw": 6.178431766937402,
+        "pitch": 6.104866643724233,
+        "roll": -18.804428146414384
+      },
+      "target": {
+        "yaw": -0.3543255082223771,
+        "pitch": 8.514259825310772,
+        "roll": 1.1908454549331857
+      },
+      "correction": {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": -7.461841047483642,
+        "pitch": 5.258229435430148,
+        "elapsed": 6.4
+      }
+    },
+    {
+      "name": "frontal/frontal-guest-woman",
+      "before": {
+        "yaw": 0.21348238323852317,
+        "pitch": 4.426466901706088,
+        "roll": 0.07130377226669067
+      },
+      "after": {
+        "yaw": 0.22127493996494177,
+        "pitch": 6.2665778261894065,
+        "roll": 0.08257526932985419
+      },
+      "target": {
+        "yaw": -0.3543255082223771,
+        "pitch": 8.514259825310772,
+        "roll": 1.1908454549331857
+      },
+      "correction": {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": -0.4796587112974411,
+        "pitch": 3.44619038015092,
+        "elapsed": 11.1
+      }
+    },
+    {
+      "name": "frontal/frontal-guest-man",
+      "before": {
+        "yaw": 0.8678744370906433,
+        "pitch": 5.272665158143524,
+        "roll": 0.09230700416461952
+      },
+      "after": {
+        "yaw": 0.707679772070035,
+        "pitch": 6.3581428280043095,
+        "roll": 0.11242372283503878
+      },
+      "target": {
+        "yaw": -0.3543255082223771,
+        "pitch": 8.514259825310772,
+        "roll": 1.1908454549331857
+      },
+      "correction": {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": -1.094190096648237,
+        "pitch": 2.6799859370411947,
+        "elapsed": 6.4
+      }
+    },
+    {
+      "name": "frontal/frontal-guest-bearded",
+      "before": {
+        "yaw": 0.5825106802620763,
+        "pitch": 2.3340610328735854,
+        "roll": 0.4813107358006439
+      },
+      "after": {
+        "yaw": -0.007068602414826482,
+        "pitch": 4.926919381979997,
+        "roll": 0.3852486604100222
+      },
+      "target": {
+        "yaw": -0.3543255082223771,
+        "pitch": 8.514259825310772,
+        "roll": 1.1908454549331857
+      },
+      "correction": {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": -0.729139585264602,
+        "pitch": 5.38509937395968,
+        "elapsed": 7
+      }
+    }
+  ],
+  "guest": {
+    "numbers": [
+      "3",
+      "2",
+      "1"
+    ],
+    "requests": [
+      {
+        "width": 368,
+        "height": 440
+      }
+    ],
+    "results": [
+      {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": -0.3411795750305724,
+        "pitch": 3.4112763857573567,
+        "elapsed": 8.6
+      }
+    ],
+    "stopped": true
+  },
+  "native4k": {
+    "requests": [
+      {
+        "width": 1673,
+        "height": 1996
+      }
+    ],
+    "results": [
+      {
+        "applied": true,
+        "reason": "corrected",
+        "yaw": -0.5643194995028992,
+        "pitch": 3.0694740861742846,
+        "elapsed": 71.3
+      }
+    ],
+    "stopped": true
+  },
+  "studio": {
+    "changed": true,
+    "undoExact": true,
+    "failureFallback": true,
+    "staleIgnored": true
+  },
+  "errors": []
+}
