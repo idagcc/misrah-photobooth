@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { poseFromMatrix, pixelQuality, assessFrame, advanceHold, correctionFor, correctPixels } from '../public/live-quality.js';
+import { poseFromMatrix, pixelQuality, assessFrame, advanceHold, advanceQuickCapture, advancePoseCountdown, canCaptureFace, correctionFor, correctPixels } from '../public/live-quality.js';
 const face = { anchor: { x: 320, y: 220 }, eyeDistance: 100, angle: 0, width: 210, height: 270,
   bounds: { left: 215, top: 90, right: 425, bottom: 360 } };
 const quality = { brightness: 120, rgb: [125,120,110], darkFraction: .02, clippedFraction: 0, imbalance: 8, sharpness: 70 };
@@ -14,6 +14,106 @@ test('column-major scaled rotation yields the expected yaw', () => {
 });
 test('capture policy accepts a centred, steady, sharp and well-lit face', () => {
   assert.equal(assessFrame(input).ready, true);
+});
+test('raising mapping to 30 Hz keeps the motion speed limit consistent', () => {
+  for (const hz of [5, 10, 30]) {
+    const observationMs = 1000 / hz;
+    const moving = { ...input, observationMs,
+      previous: { ...input.previous, x: input.previous.x - .025 * observationMs / 200 } };
+    assert.equal(assessFrame(moving).code, 'motion', `${hz} Hz`);
+    const steady = { ...moving, previous: { ...input.previous, x: input.previous.x - .005 * observationMs / 200 } };
+    assert.equal(assessFrame(steady).ready, true, `${hz} Hz`);
+  }
+});
+test('guest capture accepts a sharp straight face despite movement or landmark jitter', () => {
+  const jittering = { ...input, observationMs: 1000 / 30, previous: { ...input.previous, x: .49 } };
+  assert.equal(assessFrame(jittering).code, 'motion');
+  assert.equal(assessFrame(jittering, { requireSteady: false }).ready, true);
+  assert.equal(assessFrame({ ...input, previous: null }, { requireSteady: false }).ready, true);
+  assert.equal(assessFrame({ ...jittering, qualities: [{ ...quality, sharpness: 1 }] }, { requireSteady: false }).code, 'blur');
+});
+test('quick capture fires on the second usable frame without a timed hold', () => {
+  for (const hz of [5, 10, 30]) {
+    const state = { frames: [] }, good = assessFrame(input, { requireSteady: false });
+    assert.equal(advanceQuickCapture(state, good, 0).capture, false);
+    assert.equal(advanceQuickCapture(state, good, 1000 / hz).capture, true, `${hz} Hz`);
+  }
+});
+test('quick capture tolerates an isolated focus fluctuation but never shutters a bad frame', () => {
+  const state = { frames: [] }, good = assessFrame(input, { requireSteady: false });
+  const blur = assessFrame({ ...input, qualities: [{ ...quality, sharpness: 1 }] }, { requireSteady: false });
+  advanceQuickCapture(state, good, 0);
+  assert.equal(advanceQuickCapture(state, blur, 33).capture, false);
+  assert.equal(advanceQuickCapture(state, good, 66).capture, true);
+});
+test('lost, extra, turned or stale faces and gated phases cannot finish a quick capture', () => {
+  const good = assessFrame(input, { requireSteady: false });
+  const bad = [assessFrame({ ...input, faces: [] }), assessFrame({ ...input, faces: [face,face] }),
+    assessFrame({ ...input, poses: [{ yaw: 35, pitch: 0 }] })];
+  for (const assessment of bad) {
+    const state = { frames: [] }; advanceQuickCapture(state, good, 0);
+    assert.equal(advanceQuickCapture(state, assessment, 33).capture, false);
+    assert.equal(advanceQuickCapture(state, good, 66).capture, false);
+  }
+  const state = { frames: [] }; advanceQuickCapture(state, good, 0);
+  assert.equal(advanceQuickCapture(state, good, 600).capture, false);
+  assert.equal(advanceQuickCapture(state, good, 633, false).capture, false);
+  assert.equal(advanceQuickCapture(state, good, 666).capture, false);
+});
+test('manual shutter is available for one straight face despite lighting/focus advice', () => {
+  assert.equal(canCaptureFace(assessFrame({ ...input, qualities: [{ ...quality, brightness: 20 }] })), true);
+  assert.equal(canCaptureFace(assessFrame({ ...input, qualities: [{ ...quality, sharpness: 1 }] })), true);
+  assert.equal(canCaptureFace(assessFrame({ ...input, faces: [] })), false);
+  assert.equal(canCaptureFace(assessFrame({ ...input, faces: [face,face] })), false);
+  assert.equal(canCaptureFace(assessFrame({ ...input, poses: [{ yaw: 40, pitch: 0 }] })), false);
+});
+test('pose countdown shows 3 then 2 and fires as 1 appears, two seconds after starting', () => {
+  const state = {}, good = assessFrame(input, { requireSteady: false });
+  assert.equal(advancePoseCountdown(state, good, 0).value, null);
+  assert.deepEqual(advancePoseCountdown(state, good, 33), { value: 3, capture: false, progress: 0 });
+  assert.equal(advancePoseCountdown(state, good, 1032).value, 3);
+  assert.equal(advancePoseCountdown(state, good, 1033).value, 2);
+  assert.equal(advancePoseCountdown(state, good, 2032).capture, false);
+  assert.deepEqual(advancePoseCountdown(state, good, 2033), { value: 1, capture: true, progress: 1 });
+});
+test('focus and exposure fluctuations do not restart an active countdown', () => {
+  const state = {}, good = assessFrame(input, { requireSteady: false });
+  const blur = assessFrame({ ...input, qualities: [{ ...quality, sharpness: 1 }] });
+  advancePoseCountdown(state, good, 0); advancePoseCountdown(state, good, 33);
+  assert.equal(advancePoseCountdown(state, blur, 800).value, 3);
+  assert.equal(advancePoseCountdown(state, blur, 1033).value, 2);
+  assert.equal(advancePoseCountdown(state, blur, 2033).capture, true);
+  assert.equal(state.startedAt, 33);
+});
+test('a brief face loss does not reset the count, but an invalid face at shutter time cannot capture', () => {
+  const state = {}, good = assessFrame(input, { requireSteady: false }), absent = assessFrame({ ...input, faces: [] });
+  advancePoseCountdown(state, good, 0); advancePoseCountdown(state, good, 33);
+  assert.equal(advancePoseCountdown(state, absent, 500).value, 3);
+  assert.equal(advancePoseCountdown(state, good, 533).value, 3);
+  assert.equal(state.startedAt, 33);
+  assert.equal(advancePoseCountdown(state, absent, 2033).capture, false);
+  assert.equal(state.startedAt, null);
+});
+test('leaving the view or disabling auto capture cancels the countdown', () => {
+  const good = assessFrame(input, { requireSteady: false }), absent = assessFrame({ ...input, faces: [] });
+  for (const disabled of [false, true]) {
+    const state = {}; advancePoseCountdown(state, good, 0); advancePoseCountdown(state, good, 33);
+    advancePoseCountdown(state, absent, 500);
+    assert.equal(advancePoseCountdown(state, disabled ? good : absent, 800, !disabled).value, null);
+    assert.equal(advancePoseCountdown(state, good, 833).value, null);
+  }
+});
+test('dynamic fitting accepts visible off-centre faces without dropping the quality gates', () => {
+  for (const [dx, dy] of [[-160, 0], [160, 0], [0, -75], [0, 100]]) {
+    const moved = { ...face, anchor: { x: face.anchor.x + dx, y: face.anchor.y + dy },
+      bounds: { left: face.bounds.left + dx, right: face.bounds.right + dx,
+        top: face.bounds.top + dy, bottom: face.bounds.bottom + dy } };
+    const frame = { ...input, faces: [moved], previous: { ...input.previous,
+      x: moved.anchor.x / input.width, y: moved.anchor.y / input.height } };
+    assert.equal(assessFrame(frame).ready, true, `position ${dx}, ${dy}`);
+    assert.equal(assessFrame({ ...frame, qualities: [{ ...quality, sharpness: 1 }] }).code, 'blur');
+    assert.equal(assessFrame({ ...frame, faces: [moved, face] }).code, 'multiple');
+  }
 });
 test('capture rejects no face, multiple faces, missing pose, bad lighting and blur', () => {
   assert.equal(assessFrame({ ...input, faces: [] }).code, 'no-face');

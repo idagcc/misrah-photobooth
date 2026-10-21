@@ -43,18 +43,19 @@ export function pixelQuality(rgba, width, height) {
 export const liveDefaults = { yawLimit: 16, pitchLimit: 17, rollLimit: 18, minSharpness: 16,
   minBrightness: 42, maxBrightness: 224, maxImbalance: 65, holdMs: 1400, maxSampleGap: 750 };
 
-export function assessFrame({ faces = [], poses = [], qualities = [], width, height, previous, targetPose, targetRoll = 0 }, options = {}) {
+export function assessFrame({ faces = [], poses = [], qualities = [], width, height, previous, targetPose, targetRoll = 0, observationMs = 200 }, options = {}) {
   const o = { ...liveDefaults, ...options }, checks = { face: false, position: false, pose: false, light: false, sharp: false, steady: false };
   const issue = (code, message) => ({ ready: false, code, message, checks });
-  if (!faces.length) return issue('no-face', 'Step into the outline and look toward the camera.');
+  if (!faces.length) return issue('no-face', 'Look toward the camera so we can find your face.');
   if (faces.length > 1) return issue('multiple', 'One guest at a time. Keep other faces outside the camera view.');
   checks.face = true;
-  const f = faces[0], b = f.bounds, cx = (b.left + b.right) / 2 / width, cy = (b.top + b.bottom) / 2 / height;
+  const f = faces[0], b = f.bounds;
   const ratio = f.width / width;
   if (b.left < width * .025 || b.right > width * .975 || b.top < height * .025 || b.bottom > height * .975) return issue('clipped', 'Keep your whole face inside the camera view.');
   if (ratio < .20 || f.height / height < .25) return issue('too-far', 'Move a little closer to the camera.');
   if (ratio > .62 || f.height / height > .82) return issue('too-close', 'Move a little farther from the camera.');
-  if (Math.abs(cx - .5) > .15 || Math.abs(cy - .47) > .17) return issue('off-center', 'Move your face into the centre of the outline.');
+  // Position in the camera is irrelevant: the scored frame is cropped around
+  // these landmarks and automatically fitted to the selected portrait.
   checks.position = true;
   const pose = poses[0];
   if (!pose) return issue('pose-unavailable', 'Face angle is unavailable. Use manual capture or refresh the detector.');
@@ -71,12 +72,53 @@ export function assessFrame({ faces = [], poses = [], qualities = [], width, hei
   checks.light = true;
   if (q.sharpness < o.minSharpness) return issue('blur', 'Hold still while the camera focuses.');
   checks.sharp = true;
-  if (!previous) return issue('settling', 'Great. Hold your pose for a moment.');
-  const motion = Math.hypot(f.anchor.x / width - previous.x, f.anchor.y / height - previous.y);
-  const scaleChange = Math.abs(f.eyeDistance / width - previous.distance) / Math.max(.001, previous.distance);
-  if (motion > .018 || scaleChange > .065) return issue('motion', 'Hold still for a moment.');
+  if (o.requireSteady !== false) {
+    if (!previous) return issue('settling', 'Great. Hold your pose for a moment.');
+    const motion = Math.hypot(f.anchor.x / width - previous.x, f.anchor.y / height - previous.y);
+    const scaleChange = Math.abs(f.eyeDistance / width - previous.distance) / Math.max(.001, previous.distance);
+    const timeScale = clamp(observationMs, 1000 / 30, 750) / 200;
+    if (motion > .018 * timeScale || scaleChange > .065 * timeScale) return issue('motion', 'Hold still for a moment.');
+  }
   checks.steady = true;
   return { ready: true, code: 'ready', message: 'Looking good. Hold still for your portrait.', checks };
+}
+
+// Manual guest capture needs one visible, front-facing face. Exposure/focus
+// advice should not make the shutter unusable while its measurements fluctuate.
+export function canCaptureFace(assessment) {
+  const c = assessment?.checks;
+  return Boolean(c?.face && c.position && c.pose);
+}
+
+// Confirm two usable observations in a short three-frame window. A single
+// exposure/focus fluctuation can sit between them; the arming observation must
+// still pass photo-quality checks. Lost/extra/turned faces reset confirmation.
+export function advanceQuickCapture(state, assessment, now, enabled = true) {
+  if (!enabled || !canCaptureFace(assessment)) { state.frames = []; return { capture: false, progress: 0 }; }
+  state.frames = [...(state.frames || []).filter(f => now - f.at <= 500), { at: now, ready: assessment.ready }].slice(-3);
+  const count = state.frames.filter(f => f.ready).length;
+  return { capture: assessment.ready && count >= 2, progress: assessment.ready ? Math.min(1, count / 2) : 0 };
+}
+
+// The countdown gives time to pose; it is not a continuous steadiness test.
+// 3 appears at the start, 2 one second later, and the shutter fires with 1.
+export function advancePoseCountdown(state, assessment, now, enabled = true) {
+  const reset = () => {
+    state.frames = []; state.startedAt = null; state.invalidSince = null;
+    return { value: null, capture: false, progress: 0 };
+  };
+  if (!enabled) return reset();
+  if (state.startedAt == null) {
+    if (!advanceQuickCapture(state, assessment, now).capture) return { value: null, capture: false, progress: 0 };
+    state.startedAt = now; state.invalidSince = null;
+  }
+  const elapsed = now - state.startedAt, facing = canCaptureFace(assessment);
+  if (!facing) {
+    state.invalidSince ??= now;
+    if (now - state.invalidSince >= 250 || elapsed >= 2000) return reset();
+  } else state.invalidSince = null;
+  return { value: Math.max(1, 3 - Math.floor(elapsed / 1000)), capture: elapsed >= 2000 && facing,
+    progress: Math.min(1, elapsed / 2000) };
 }
 
 export function advanceHold(state, ready, now, options = {}) {

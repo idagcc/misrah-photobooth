@@ -15,9 +15,21 @@ const waitStep = step => page.waitForFunction(s => document.body.dataset.step ==
 const shot = name => page.screenshot({ path: `${qa}kiosk-${name}.png` });
 const boot = async url => {
   await page.goto(url);
-  await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
+  try { await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 }); }
+  catch (error) {
+    console.error(await page.evaluate(() => ({ welcome: document.getElementById('welcome-status')?.textContent,
+      status: document.getElementById('status')?.textContent, model: document.getElementById('model-status')?.textContent })), errors);
+    throw error;
+  }
 };
 try {
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      new MutationObserver(() => {
+        if (window.pauseCameraCapture && document.body.dataset.step === 'camera') document.getElementById('auto-capture').checked = false;
+      }).observe(document.body, { attributes: true, attributeFilter: ['data-step'] });
+    });
+  });
   await boot(`${base}/?camera=sample`);
   assert.equal(await page.locator('body').getAttribute('data-step'), 'welcome');
   await shot('welcome');
@@ -34,9 +46,13 @@ try {
   await page.waitForTimeout(5000);
   assert.equal(await page.locator('body').getAttribute('data-step'), 'choose');
   assert.equal(await page.evaluate(() => document.getElementById('camera-video').srcObject), null);
+  await page.evaluate(() => { window.pauseCameraCapture = true; });
   await page.locator('#frontal-weaver').click();
   await waitStep('camera');
   await shot('camera');
+  await page.evaluate(() => { window.pauseCameraCapture = false; document.getElementById('auto-capture').checked = true; });
+  await page.waitForFunction(() => !document.getElementById('capture-countdown').hidden && document.getElementById('capture-countdown').textContent === '3');
+  await shot('countdown');
   await waitStep('result');
   await shot('result');
   assert.match(await page.locator('#sample-disclosure').textContent(), /Sample portrait/);

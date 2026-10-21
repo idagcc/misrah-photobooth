@@ -25,7 +25,7 @@ BUILTINS = [
     {"id": "frontal-weaver", "name": "The basket weaver", "src": "assets/frontal/frontal-weaver.png"},
     {"id": "frontal-pearl-trader", "name": "The pearl trader", "src": "assets/frontal/frontal-pearl-trader.png"},
 ]
-DEFAULTS = {"cameraId": "", "rate": 5, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True}
+DEFAULTS = {"cameraId": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True}
 EVENT_TIMEZONE = timezone(timedelta(hours=4), "Asia/Dubai")
 MIN_ARCHIVE_FREE = 1024 ** 3
 
@@ -311,7 +311,7 @@ class BoothService:
     def save_settings(self, value):
         if not isinstance(value, dict) or set(value) != set(DEFAULTS):
             raise ValueError("The device settings are incomplete.")
-        if value["rate"] not in (5, 10) or type(value["rate"]) is not int or value["printMode"] not in ("dialog", "native"):
+        if value["rate"] not in (5, 10, 30) or type(value["rate"]) is not int or value["printMode"] not in ("dialog", "native"):
             raise ValueError("Choose a supported performance and printing mode.")
         if type(value["archiveEnabled"]) is not bool:
             raise ValueError("Choose whether finished portraits should be saved.")

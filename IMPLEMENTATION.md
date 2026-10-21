@@ -2,7 +2,7 @@
 
 ## Guest and operator boundaries
 
-`public/index.html`, `guest.css` and `guest-flow.js` implement the guest kiosk. The flow is welcome, frontal portrait choice, bundled four-second lights clip, camera, processing and review. The camera acquires during the lights clip, with capture gated until it ends. One ready face must hold continuously for three seconds. Bad pose, multiple faces, low light, blur or movement resets the countdown. Capture uses the exact full-resolution snapshot that was analysed, bounded to a 1600 px longest side.
+`public/index.html`, `guest.css` and `guest-flow.js` implement the guest kiosk. The flow is welcome, frontal portrait choice, bundled four-second lights clip, camera, processing and review. The camera acquires during the lights clip, with capture gated until it ends. Two usable frontal observations in the latest three frames (within 500 ms) arm a fixed-clock 3/2/1 countdown. It shows 3 immediately, 2 at +1000 ms, and captures as 1 appears at +2000 ms. The countdown is time to pose, without a continuous steadiness requirement. Capture crops the exact original-resolution camera bitmap whose smaller copy was analysed.
 
 Only the two frontal scenes are initially enabled. The guest no longer loads the original angled artwork, blue-key demo or diagnostic people at startup. Simulated camera and labelled sample URLs load test people explicitly. `studio.html` retains the legacy preparation workflow separately.
 
@@ -12,7 +12,7 @@ The guest choice screen uses large portrait cards. The finished print preview ap
 
 `server.py` binds to `127.0.0.1` and serves `public/`. `booth_service.py` adds a standard-library SQLite service. `.local-data/` (or `--data-dir`) stores:
 
-- One settings record: camera ID, 5/10 Hz analysis rate, system/direct printing mode, printer queue and media code.
+- One settings record: camera ID, 5/10/30 Hz analysis rate, system/direct printing mode, printer queue and media code. New settings default to 30; existing settings keep their selected rate.
 - Built-in/imported portrait names and visibility, full normalized JPEGs for imports, and small thumbnails.
 - Unique aggregate usage events and print job metadata: template, queue ID, state, time and generic error text. The aggregate usage view does not include guest images; archive metadata identifies locally saved final JPEGs.
 
@@ -46,22 +46,28 @@ The UI explicitly labels queue/driver status, never equates idle with loaded pap
 
 ## 16 GB Apple-silicon profile
 
-- Video request: 1280 × 960, ideal/max 30 fps, audio disabled. The device may negotiate another resolution; the snapshot is still bounded to 1600 px.
-- Analysis: longest side ≤640 px, default 5 Hz, optional 10 Hz. Only one live job is in flight; no backlog of stale frames.
+- Video request: 3840 × 2160 in the 30 Hz profile; 1280 × 960 in 5/10 Hz profiles. Ideal/max 30 fps, audio disabled. These are preferred dimensions; negotiated values are reported separately.
+- Analysis: longest side ≤640 px, target 30 Hz for new settings, optional 5/10 Hz. `requestVideoFrameCallback` follows frame presentation; a timer supports browsers without that API. Only one live job is in flight; the latest frame token replaces older unprocessed tokens without queuing images.
 - Guest preview: mirrored camera only. Hidden live composite painting and per-frame correction are skipped. Final still correction remains enabled.
-- One CPU/WASM Face Landmarker worker. It reuses live canvas allocations and releases full-size buffers after still jobs. Transferable image bitmaps are closed after consumption.
+- One Face Landmarker worker, with a dedicated OffscreenCanvas for GPU/WebGL inference and automatic CPU/WASM fallback during initialization. It reuses analysis allocations and releases full-size worker buffers after still jobs. Camera snapshots use at most two original-resolution ImageBitmaps, about 66 MB of raw RGBA pixels at 4K, excluding browser/model/driver allocations. Both are closed when replaced or stopped. Full-frame 4K 2D raster copies are avoided during tracking.
 - A maximum of three full-size calibrated frames, small library thumbnails, and no diagnostic assets on normal startup. Guest image references and canvases are cleared on finish/idle reset.
 - Native output: 1024 × 1536 for included frontal scenes, up to the import bound for additional artwork. The final photograph is not reduced to the live-analysis size.
 
-These are resource-bounding choices for the requested 16 GB machine, not a benchmark of an M6 Mac mini. CPU/WASM does not automatically use the Neural Engine. The actual camera, display, browser, lighting and driver still need a sustained event-machine test.
+These are resource-bounding choices for the requested 16 GB machine. WebGL acceleration does not use a native Core ML/Neural Engine integration. `booth-camera-performance` events report the camera size, negotiated frame rate, measured presentation rate, cumulative tracking throughput, last inference time and actual delegate. The hidden operator panel keeps the last session's readings after stopping the camera. The target 16 GB M6, Link 2 USB capture, lighting and driver still need a sustained event-machine test.
 
 ## Core image pipeline and thresholds
 
-`Camera → bounded exact snapshot → 640 px worker analysis → quality/pose gates → hold → still tone correction → landmark alignment + feathered template → JPEG/PNG or print`
+`Camera → original-resolution bitmap → 640 px worker analysis + smoothed face display → frontal face/quality confirmation → 3 → 2 → shutter on 1 (or manual shutter) → native face crop + remapped landmarks → still tone correction → eye alignment + feathered template → JPEG/PNG or print`
 
-`live-quality.js` provides matrix pose decomposition, exposure/sharpness metrics, quality policy and bounded tone correction. Exposure adjustment is restrained to 0.8–1.28×, white-balance channel gain to 0.9–1.1×, with a small shadow lift. A matching artistic colour treatment is applied without forcing the guest to the original face's complexion. `geometry.js` owns eye alignment, manual geometry and opening inference. The legacy studio retains manual positioning and tone controls.
+`live-quality.js` provides matrix pose decomposition, exposure/sharpness metrics, quality policy and bounded tone correction. Exposure adjustment is restrained to 0.8–1.28×, white-balance channel gain to 0.9–1.1×, with a small shadow lift. A matching artistic colour treatment is applied without forcing the guest to the original face's complexion. `geometry.js` owns eye alignment, the shared face contour, padded camera crops, landmark coordinate remapping, manual geometry and opening inference. The legacy studio retains manual positioning and tone controls.
 
-The initial live policy expects one face, useful central framing, approximately 16° yaw / 17° pitch / 18° roll relative to the frontal target, usable face luminance (about 42–224/255), limited asymmetric shadow, fixed-crop Laplacian sharpness ≥16 and low inter-frame motion. A failed observation or gap over 750 ms resets the continuous hold. These heuristics require real-camera calibration; hair, glasses, shadows and occlusion can affect blend quality. This implementation preserves the photographed face and does not synthesize missing pose or lighting.
+The guest automatic policy arms with one fully visible face of sufficient size, approximately 16° yaw / 17° pitch / 18° roll relative to the frontal target, usable face luminance (about 42–224/255), limited asymmetric shadow and fixed-crop Laplacian sharpness ≥16. `requireSteady: false` removes displacement as a shutter gate. `advancePoseCountdown` uses `advanceQuickCapture` to arm from two good observations, then advances independently of quality fluctuations. A face/size/pose failure gets 250 ms grace during 3/2, but any invalid face at the shutter deadline cancels capture. A separate timer keeps the number changes aligned to the wall clock. Both countdown and manual shutter require `canCaptureFace` and a recent measured bitmap; light/focus advice does not delay 1. Neither path can capture during lights. The operator studio retains the original timed steady hold and elapsed-time motion thresholds.
+
+On 1, the image is copied synchronously from the scored bitmap, then the camera display pauses for 180 ms so 1 and the captured moment can be painted. Only then does processing open. Closing during that interval cancels the pending delivery and returns to portrait selection; a committed capture is distinguished from a pending shutter. Stop/cancel clears the countdown timer, and in-flight analyses cannot overwrite the frozen moment.
+
+The mirrored face-map canvas uses the same contained aspect ratio as the video, including letterboxing. It draws the current MediaPipe oval and feature lines; it has no fixed guide to match. Both normal and simulated cameras use it. Capture uses a separate scored snapshot, while the next frame is acquired into a second buffer. A guest shutter tap during inference therefore retains the last measured pixels and their matching landmarks. The face crop adds 30% padding per side, clamps to camera bounds and retains original pixel density; normalized landmark X/Y/Z coordinates are remapped to that crop. `setSource` reuses these observations instead of detecting the cropped still again. Uploaded photos and the studio manual override continue to run their own detection. Stop/cancel/reset clears both image buffers, mapping canvas and observations.
+
+`live-display.js` smooths only displayed landmark X/Y coordinates with a 75 ms time constant, resets on large jumps/multiple faces, and fades an isolated loss for up to 150 ms. The guest outline keeps a consistent colour; guidance changes wait 250 ms to settle, while successful automatic confirmation is shown immediately. Raw face count, pose, quality, crop coordinates and capture gates remain unsmoothed. A transient missing face therefore cannot authorize a shutter even while its outline is briefly fading.
 
 
 ## Weekly archives — v0.7

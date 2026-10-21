@@ -1,0 +1,50 @@
+{
+  "workers": [
+    {
+      "query": "delegate=CPU",
+      "delegate": "CPU",
+      "faces": 1
+    },
+    {
+      "query": "fallback=1",
+      "delegate": "CPU",
+      "faces": 1
+    }
+  ],
+  "runtime": {
+    "constraints": {
+      "video": {
+        "width": {
+          "ideal": 3840
+        },
+        "height": {
+          "ideal": 2160
+        },
+        "frameRate": {
+          "ideal": 30,
+          "max": 30
+        },
+        "facingMode": "user"
+      },
+      "audio": false
+    },
+    "measured": {
+      "running": true,
+      "sample": false,
+      "width": 1280,
+      "height": 720,
+      "requestedWidth": 3840,
+      "requestedHeight": 2160,
+      "negotiatedFps": 30,
+      "targetChecks": 30,
+      "checksFps": 12.92631997609772,
+      "cameraFps": 31.876992312019496,
+      "inferenceMs": 75,
+      "delegate": "CPU",
+      "processed": 21
+    },
+    "maxActive": 1,
+    "ended": true,
+    "cleared": true
+  }
+}

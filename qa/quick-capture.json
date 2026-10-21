@@ -1,0 +1,46 @@
+{
+  "manual": [
+    {
+      "at": 1520.800000011921,
+      "sharpness": 1,
+      "width": 349,
+      "height": 439,
+      "automatic": false,
+      "shutterAt": 1520.1000000089407,
+      "numberAtShutter": ""
+    }
+  ],
+  "automatic": {
+    "at": 2489.7999999970198,
+    "sharpness": 1,
+    "width": 349,
+    "height": 439,
+    "automatic": true,
+    "shutterAt": 2307.7999999970198,
+    "numberAtShutter": "1",
+    "elapsed": 2279.5,
+    "countdown": [
+      {
+        "value": "3",
+        "at": 308.1000000089407
+      },
+      {
+        "value": "2",
+        "at": 1309.7000000029802
+      },
+      {
+        "value": "1",
+        "at": 2308.7000000029802
+      }
+    ],
+    "shutterElapsed": 1999.699999988079,
+    "cleared": true
+  },
+  "guidanceChangesIn800ms": 1,
+  "blocked": [
+    "no-face",
+    "multiple",
+    "turned"
+  ],
+  "errors": []
+}

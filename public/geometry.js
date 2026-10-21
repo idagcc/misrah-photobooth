@@ -1,6 +1,7 @@
 // Geometry is independent of the UI so alignment can be checked deterministically.
 export const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const radians = degrees => degrees * Math.PI / 180;
+export const FACE_OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
 const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const distance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
 
@@ -12,6 +13,24 @@ export function faceGeometry(landmarks, width, height) {
     width: distance(p(234), p(454)), height: distance(p(10), p(152)),
     bounds: { left: Math.min(...landmarks.map(q => q.x)) * width, top: Math.min(...landmarks.map(q => q.y)) * height,
       right: Math.max(...landmarks.map(q => q.x)) * width, bottom: Math.max(...landmarks.map(q => q.y)) * height } };
+}
+
+// Crop the measured frame at its original resolution. Padding leaves room for
+// roll correction and the portrait's feathered opening without upscaling pixels.
+export function faceCrop(landmarks, width, height, padding = .3) {
+  const b = faceGeometry(landmarks, width, height).bounds;
+  const px = (b.right - b.left) * padding, py = (b.bottom - b.top) * padding;
+  const x = Math.floor(clamp(b.left - px, 0, width - 1));
+  const y = Math.floor(clamp(b.top - py, 0, height - 1));
+  const right = Math.ceil(clamp(b.right + px, x + 1, width));
+  const bottom = Math.ceil(clamp(b.bottom + py, y + 1, height));
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+export function landmarksForCrop(landmarks, width, height, crop) {
+  return landmarks.map(p => ({ ...p, x: (p.x * width - crop.x) / crop.width,
+    y: (p.y * height - crop.y) / crop.height,
+    ...(Number.isFinite(p.z) ? { z: p.z * width / crop.width } : {}) }));
 }
 
 export function manualGeometry(width, height) {

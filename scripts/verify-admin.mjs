@@ -16,6 +16,13 @@ try {
   await admin();
   await page.locator('#admin-printer-status').filter({ hasText: /No printer|unavailable/ }).waitFor();
   await page.screenshot({ path: new URL('qa/admin-devices.png', root).pathname });
+  await page.locator('#admin-rate').selectOption('30');
+  await page.locator('#admin-settings button[type=submit]').click();
+  await page.locator('#admin-feedback').filter({ hasText: 'Device settings saved' }).waitFor();
+  await page.reload();
+  await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
+  await admin();
+  assert.equal(await page.locator('#admin-rate').inputValue(), '30');
   await page.locator('#admin-rate').selectOption('10');
   await page.locator('#admin-settings button[type=submit]').click();
   await page.locator('#admin-feedback').filter({ hasText: 'Device settings saved' }).waitFor();

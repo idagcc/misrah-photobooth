@@ -1,17 +1,28 @@
 /* Inference, quality checks and tone correction stay off the UI thread. */
 importScripts('./vendor/vision_bundle.js');
-let detector, runningMode = 'IMAGE', lastTimestamp = -1, queue = Promise.resolve(), quality;
+let detector, runningMode = 'IMAGE', lastTimestamp = -1, queue = Promise.resolve(), quality, delegate = 'CPU';
 const startup = (async () => {
   try {
     quality = await import('./live-quality.js');
     const files = await Vision.FilesetResolver.forVisionTasks(new URL('./vendor/wasm', self.location).href);
-    detector = await Vision.FaceLandmarker.createFromOptions(files, {
-      baseOptions: { modelAssetPath: new URL('./models/face_landmarker.task', self.location).href, delegate: 'CPU' },
+    const options = {
+      baseOptions: { modelAssetPath: new URL('./models/face_landmarker.task', self.location).href },
       runningMode, numFaces: 4, minFaceDetectionConfidence: .40,
       minFacePresenceConfidence: .5, outputFaceBlendshapes: false,
       outputFacialTransformationMatrixes: true
-    });
-    self.postMessage({ type: 'ready' });
+    };
+    // A dedicated WebGL canvas keeps GPU inference off the UI thread. The CPU
+    // path remains available when browser/driver WebGL support is unavailable.
+    if (new URL(self.location).searchParams.get('delegate') !== 'CPU') {
+      try {
+        detector = await Vision.FaceLandmarker.createFromOptions(files, { ...options,
+          canvas: new OffscreenCanvas(1, 1), baseOptions: { ...options.baseOptions, delegate: 'GPU' } });
+        delegate = 'GPU';
+      } catch { /* Fall back to the bundled CPU/WASM runtime. */ }
+    }
+    if (!detector) detector = await Vision.FaceLandmarker.createFromOptions(files, {
+      ...options, baseOptions: { ...options.baseOptions, delegate: 'CPU' } });
+    self.postMessage({ type: 'ready', delegate });
   } catch (error) { self.postMessage({ type: 'init-error', error: String(error.message || error) }); throw error; }
 })();
 startup.catch(() => {});
@@ -53,7 +64,7 @@ async function process(data) {
       frameCtx.putImageData(pixels, 0, 0); corrected = frame.transferToImageBitmap();
     }
     self.postMessage({ type: 'result', id: data.id, landmarks: result.faceLandmarks, poses, qualities,
-      elapsed: Math.round(performance.now() - started), corrected }, corrected ? [corrected] : []);
+      elapsed: Math.round((performance.now() - started) * 10) / 10, delegate, corrected }, corrected ? [corrected] : []);
   } catch (error) { self.postMessage({ type: 'error', id: data.id, error: String(error.message || error) }); }
   finally {
     data.bitmap?.close();

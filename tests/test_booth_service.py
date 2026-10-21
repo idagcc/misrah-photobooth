@@ -88,6 +88,14 @@ class BoothTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.service.save_settings({**self.settings, **overrides})
 
+    def test_30_fps_profile_and_existing_lower_rates_persist(self):
+        for rate in (5, 10, 30):
+            value = {**self.settings, 'rate': rate}
+            self.service.save_settings(value)
+            reopened = BoothService(self.directory.name, self.printer)
+            self.assertEqual(reopened.config()['settings']['rate'], rate)
+            reopened.db.close()
+
     def test_same_request_is_never_submitted_twice_even_concurrently(self):
         key = str(uuid.uuid4())
         def send(_):

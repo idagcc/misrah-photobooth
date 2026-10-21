@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "person": "frontal-guest-woman",
+      "template": "frontal-weaver",
+      "position": "left",
+      "outline": {
+        "centre": 0.28125,
+        "faces": "1"
+      },
+      "crop": {
+        "width": 365,
+        "height": 441
+      }
+    },
+    {
+      "person": "frontal-guest-woman",
+      "template": "frontal-weaver",
+      "position": "right",
+      "outline": {
+        "centre": 0.71796875,
+        "faces": "1"
+      },
+      "crop": {
+        "width": 365,
+        "height": 442
+      }
+    },
+    {
+      "person": "frontal-guest-man",
+      "template": "frontal-pearl-trader",
+      "position": "left",
+      "outline": {
+        "centre": 0.28125,
+        "faces": "1"
+      },
+      "crop": {
+        "width": 366,
+        "height": 453
+      }
+    },
+    {
+      "person": "frontal-guest-bearded",
+      "template": "frontal-pearl-trader",
+      "position": "right",
+      "outline": {
+        "centre": 0.71796875,
+        "faces": "1"
+      },
+      "crop": {
+        "width": 365,
+        "height": 439
+      }
+    }
+  ],
+  "delayedInference": "passed",
+  "qualityGates": "passed"
+}

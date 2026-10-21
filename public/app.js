@@ -1,4 +1,4 @@
-import { clamp, faceGeometry, manualGeometry, targetForOpening, alignment, findTransparentOpening } from './geometry.js';
+import { clamp, FACE_OVAL, faceGeometry, manualGeometry, targetForOpening, alignment, findTransparentOpening } from './geometry.js';
 import { correctionFor } from './live-quality.js';
 import { LiveCamera } from './live-camera.js';
 import { createGuestFlow } from './guest-flow.js';
@@ -162,12 +162,11 @@ async function prepareScene(definition) {
   if (clientFrames.has(definition.id)) {
     const cached = clientFrames.get(definition.id); clientFrames.delete(definition.id); clientFrames.set(definition.id, cached); return cached;
   }
-  const contour = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
   const image = await imageFromURL(definition.src), result = await detect(image);
   if (result.landmarks.length !== 1) throw new Error('The portrait must contain exactly one clear face.');
   const points = result.landmarks[0], w = image.width, h = image.height;
   const mask = makeCanvas(w, h), mctx = mask.getContext('2d'); mctx.fillStyle = 'white'; mctx.beginPath();
-  contour.forEach((index, j) => { const p = points[index]; j ? mctx.lineTo(p.x * w, p.y * h) : mctx.moveTo(p.x * w, p.y * h); });
+  FACE_OVAL.forEach((index, j) => { const p = points[index]; j ? mctx.lineTo(p.x * w, p.y * h) : mctx.moveTo(p.x * w, p.y * h); });
   mctx.closePath(); mctx.fill();
   const layer = makeCanvas(w, h), lctx = layer.getContext('2d'); lctx.drawImage(image, 0, 0);
   lctx.globalCompositeOperation = 'destination-out'; lctx.drawImage(mask, 0, 0);
@@ -391,7 +390,7 @@ function faceButtons() {
     $('face-list').append(button);
   });
 }
-async function setSource(image, label) {
+async function setSource(image, label, measuredDetection = null) {
   const generation = ++state.generation;
   state.source = image; state.rawSource = image; state.qualities = []; state.poses = []; state.faces = []; state.selected = 0; state.settings = { ...defaults }; state.toneGeneration++;
   if (state.frame?.quality?.styleStrength) { state.settings.warmth = 0; state.settings.softness = 6; }
@@ -404,7 +403,9 @@ async function setSource(image, label) {
     await Promise.all([engineReady, templateReady]);
     if (generation !== state.generation) return;
     if (engineFailed) throw new Error('The detector is unavailable.');
-    const result = await detect(image);
+    // Live captures carry the landmarks measured on this exact frame, remapped
+    // into its face crop. Uploads still run their own detector pass.
+    const result = measuredDetection || await detect(image);
     if (generation !== state.generation) return;
     state.faces = result.landmarks.map(points => faceGeometry(points, image.width, image.height));
     state.qualities = result.qualities;

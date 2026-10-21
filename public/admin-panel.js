@@ -9,8 +9,9 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
     <nav class="admin-tabs" aria-label="Admin sections"><button data-admin-tab="devices" aria-pressed="true">Devices</button><button data-admin-tab="portraits" aria-pressed="false">Portraits</button><button data-admin-tab="usage" aria-pressed="false">Usage</button><button data-admin-tab="storage" aria-pressed="false">Storage</button></nav>
     <section id="admin-devices" class="admin-section">
       <form id="admin-settings"><div class="admin-fields"><label>Camera<select id="admin-camera"><option value="">Default camera</option></select></label><button id="admin-find-cameras" type="button" class="button secondary">Find cameras</button></div>
-        <label>Live checks<select id="admin-rate"><option value="5">Efficient · 5 per second (16 GB Mac mini)</option><option value="10">Balanced · 10 per second</option></select></label>
-        <p class="admin-hint">One camera at 1280 × 960, up to 30 fps. A single background worker keeps the screen responsive.</p>
+        <label>Camera & tracking<select id="admin-rate"><option value="30">4K camera · target 30 face updates/sec</option><option value="10">Standard camera · target 10 face updates/sec</option><option value="5">Standard camera · target 5 face updates/sec</option></select></label>
+        <p class="admin-hint">4K mode requests 3840 × 2160 at 30 fps and retains full camera detail for the photograph. The camera may supply a lower mode. Face tracking uses a smaller image and GPU acceleration when available. Saved changes apply to the next capture.</p>
+        <p id="admin-camera-performance" class="admin-device-status" role="status">Open the guest camera to measure its actual resolution and tracking speed.</p>
         <div class="admin-divider"></div><label>Printing<select id="admin-print-mode"><option value="dialog">System print window</option><option value="native">Direct to selected Mac printer</option></select></label>
         <div class="admin-fields"><label>Printer<select id="admin-printer"><option value="">Select a printer</option></select></label><button id="admin-refresh-printers" type="button" class="button secondary">Refresh printers</button></div>
         <label>Photo paper<select id="admin-media"><option value="">Select 4 × 6 inch paper</option></select></label>
@@ -36,6 +37,11 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
     </section>
     <p id="admin-feedback" class="admin-feedback" role="status" aria-live="polite"></p><p class="admin-shortcut">Close with Esc or ⌘⌥⇧A · Ctrl+Alt+Shift+A also works</p>`;
   document.body.append(dialog);
+  document.addEventListener('booth-camera-performance', ({ detail: m }) => {
+    const cameraFps = m.cameraFps === null ? 'measuring' : `${m.cameraFps.toFixed(1)} fps`;
+    const state = m.running ? 'Current camera' : 'Last camera session';
+    $('admin-camera-performance').textContent = `${state}${m.sample ? ' (simulated)' : ''}: ${m.width} × ${m.height} · camera ${cameraFps} · face tracking ${m.checksFps.toFixed(1)} / ${m.targetChecks} fps · ${m.delegate || 'starting detector'}${m.inferenceMs === null ? '' : ` · ${m.inferenceMs} ms analysis`}`;
+  });
   let activeTab = 'devices', refreshing = false, busy = false, stats;
   function feedback(message, error = false) { $('admin-feedback').textContent = message; $('admin-feedback').classList.toggle('error', error); }
   async function run(action) { try { await action(); } catch (error) { feedback(error.message, true); } }

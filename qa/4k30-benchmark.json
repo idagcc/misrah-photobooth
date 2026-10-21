@@ -1,0 +1,37 @@
+{
+  "measuredAt": "2026-10-21T13:35:28.395Z",
+  "host": {
+    "cpu": "Apple M5 Pro",
+    "memoryGB": 48,
+    "arch": "arm64",
+    "browser": "155.0.8059.85"
+  },
+  "source": "Synthetic 3840×2160 canvas camera at target 30 fps; fictional sample face; real MediaPipe inference",
+  "durationSeconds": 20,
+  "processed": 600,
+  "mappingFps": 30.006562370072057,
+  "inferenceMedianMs": 12.3,
+  "inferenceP95Ms": 25.4,
+  "workerRoundTripP95Ms": 25.700000002980232,
+  "delegate": "GPU",
+  "camera": {
+    "running": true,
+    "sample": true,
+    "width": 3840,
+    "height": 2160,
+    "requestedWidth": 3840,
+    "requestedHeight": 2160,
+    "negotiatedFps": 30,
+    "targetChecks": 30,
+    "checksFps": 30.082402669938283,
+    "cameraFps": 30.035927429296752,
+    "inferenceMs": 15,
+    "delegate": "GPU",
+    "processed": 860
+  },
+  "nativeFaceCrop": {
+    "width": 1673,
+    "height": 1996
+  },
+  "caveat": "This host is not the target 16 GB M6. Physical Insta360 Link 2 USB/driver capture and sustained event conditions were not tested."
+}
