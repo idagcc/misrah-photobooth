@@ -21,7 +21,8 @@ async function process(data) {
   try {
     await startup;
     const started = performance.now();
-    frame.width = data.bitmap.width; frame.height = data.bitmap.height; frameCtx.drawImage(data.bitmap, 0, 0);
+    if (frame.width !== data.bitmap.width || frame.height !== data.bitmap.height) { frame.width = data.bitmap.width; frame.height = data.bitmap.height; }
+    frameCtx.drawImage(data.bitmap, 0, 0);
     if (data.type === 'correct') {
       const pixels = frameCtx.getImageData(0, 0, frame.width, frame.height);
       quality.correctPixels(pixels.data, data.correction); frameCtx.putImageData(pixels, 0, 0);
@@ -57,6 +58,7 @@ async function process(data) {
   finally {
     data.bitmap?.close();
     frameCtx.clearRect(0, 0, frame.width, frame.height); cropCtx.clearRect(0, 0, 112, 112);
+    if (!data.live) { frame.width = 1; frame.height = 1; }
   }
 }
 self.onmessage = ({ data }) => { if (['detect', 'correct'].includes(data.type)) queue = queue.then(() => process(data)); };

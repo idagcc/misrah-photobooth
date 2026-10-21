@@ -1,87 +1,111 @@
-# Misrah Studio — guest kiosk photobooth v0.5
+# Misrah Studio — local photobooth v0.7
 
-A working local prototype with two generated frontal test scenes, three generated test guests, the three client-supplied Misrah designs, live pose and quality guidance, automatic capture, a live composite, and automatic colour/exposure correction. A guest can also upload a photograph. All processing runs in the browser on the device, using the bundled MediaPipe Face Landmarker model and CPU WebAssembly runtime.
+A clean, touch-first photobooth for an Apple-silicon Mac mini with 16 GB unified memory. Guests choose a straight-facing heritage portrait, look at the camera, and print a keepsake. Everything runs on the booth computer. This prototype uses geometric face insertion and local tone correction, rather than a cloud or neural identity-swap service.
 
-## Open the app
+## Start
 
-Requires Python 3 and a recent desktop Chrome or Edge browser. No Node installation, account, API key, internet access, or GPU is required to run the delivered folder.
+Requires Python 3.9+ and a recent desktop Chrome or Edge browser. Double-click **Start Photobooth.command** on macOS, or run `python3 server.py`. Keep its window open. The address is normally <http://127.0.0.1:8765>. If the port is busy, use `python3 server.py --port 8766`.
 
-- **macOS:** double-click **Start Photobooth.command**. Keep the window open.
-- **Windows:** double-click **Start Photobooth.bat** with Python 3 installed.
-- **Any supported desktop:** run `python3 server.py` from this folder (Windows can use `py -3 server.py`). Open the address it prints, normally <http://127.0.0.1:8765>.
-- Stop the app with Ctrl+C in its server window. If the port is busy, run `python3 server.py --port 8766`.
+Camera access requires this local address; opening `index.html` directly will not work. The bundled model, runtime, artwork and lights clip work offline. No Node installation or additional Python packages are needed to operate the booth.
 
-Open through the local server, rather than double-clicking `public/index.html`. Browser camera permissions, workers, modules, and the model require a local HTTP origin. If the in-app preview does not allow a camera, open the same local address in Chrome or Edge.
+## Guest flow
 
-## Guest experience
+**Touch to start → choose a portrait → lights → steady 3-second capture → print or retake.**
 
-The default page is a touch-first guest kiosk: **Touch to start → tap one of six templates → lights video → automatic photo → Print or Retake**. The six templates are the two generated frontal scenes, three client Misrah designs, and the original artisan portrait. Tapping a template starts the bundled four-second lights video and opens the camera in the background. After the clip, the guest sees the camera and simple guidance. A continuously suitable, steady face starts a three-second countdown; losing the pose resets it. **Take picture now** is also available once the quality checks pass. Camera permission and detector failures offer a retry action.
+Only the two frontal portraits are enabled initially: The basket weaver and The pearl trader. The welcome screen also uses a straight-facing portrait. Large cards start capture with one tap, without a second scene preview or exposed settings. A single camera view gives short, actionable guidance. Retake keeps the chosen portrait; Choose another portrait clears the photograph. Finish clears the photograph and print image for the next guest. After two idle minutes, the session clears, with a warning during the final 20 seconds. Processing, printing and the open admin panel suspend that timer.
 
-The review screen shows the finished portrait with **Print my photo**, **Retake photo**, **Choose another template**, **Save a copy**, and **Finish · Next guest**. Retake clears the previous photo and starts capture again with the same template. Choosing another template clears the photograph and returns to the six choices. Finish clears the photograph and print image and returns to Touch to start. After two minutes of inactivity a session resets, with a warning for the final 20 seconds; active image processing and the print dialog pause this timeout.
+The original generated scenes are synthetic alignment fixtures, not approved client artwork. Add approved frontal artwork through the admin panel before an event.
 
-**Printing:** Print my photo opens the browser/system print dialog with only the finished photograph on a 4 × 6 inch page. Select the connected printer, 4 × 6 paper and suitable scaling in that dialog. A template with a different aspect ratio is fitted without cropping. Closing or cancelling the print dialog keeps the portrait available; the app does not claim a print job succeeded. Silent printing and control of physical lighting require event hardware configuration and are not provided by the browser app. The lights sequence is an on-screen MP4, not a command to physical lights.
+## Hidden admin panel
 
-All processing stays on this device. Guest photos remain in memory until cleared or the page is refreshed; explicit downloads remain saved. Adjustment sliders, uploads, generated test faces, pose values, performance settings and diagnostic controls are absent from the guest interface. The operator studio remains separate.
+Press **Command + Option + Shift + A** on a Mac, or **Control + Alt + Shift + A**. Repeat the shortcut or press Escape to close it. Opening admin stops an active camera; the guest can start capture again afterward.
 
-A labelled client sample is available at `http://127.0.0.1:8765/?sample=woman`; supported sample names are `woman`, `man` and `bearded`. An optional `scene=frontal-pearl-trader` selects that scene. These URLs render fictional sample portraits without opening a webcam. For internal flow verification only, `?camera=sample` makes a template tap open a clearly labelled simulated stream. The plain local address always requests a real camera.
+- **Devices:** choose the camera, 5 or 10 live checks per second, printing mode, installed Mac printer, and a supported 4 × 6 paper size. Find cameras requests permission, enumerates cameras, and immediately stops its temporary stream. Save applies the choice to the next capture and persists it across restarts.
+- **Portraits:** add a named JPEG, PNG or WebP with one straight-facing person. Use vertical artwork at least 900 px tall. The local model checks for exactly one face, approximately frontal head pose and level eyes before adding it. The image is resized to at most 1800 px tall and stored with a small thumbnail. Hide/show controls update the guest selection without deleting artwork or its statistics. Keep at least one portrait enabled. Up to 50 portraits can be stored.
+- **Storage:** turn automatic saving on/off, see the archive location, weekly photo counts, bytes used, free drive space and a live estimate for 30,000 photos. A failed save keeps the current photo available for operator retry.
+- **Usage:** lifetime totals and per-portrait selections, captures, direct print requests, accepted print jobs, spooler-completed jobs, system print windows, and errors. Recent jobs include their queue IDs and status. Export CSV downloads the per-portrait totals. No guest images appear in usage history.
 
-The previous adjustment studio remains available at `http://127.0.0.1:8765/studio.html` for template preparation and diagnostics. It is separate from the guest page.
+A selection means a guest tapped a portrait, even if capture was later cancelled. A successful retake is another capture. System print windows can be cancelled and are never counted as accepted or completed prints. A completed spooler job is not independent proof of physical output. Sample links and simulated-camera sessions do not contribute to usage totals and always use the system print window.
 
-## Operator studio
+## Printing on macOS, including DNP DS-RX1HS
 
-1. Start with **Frontal weaver** or **Frontal pearl trader**, then click one of the three **Straight-on test faces**. These are independent fictional AI portraits. **Try the sample** still loads the original client example.
-2. Choose a Misrah scene, then click **Open live camera** and allow camera access. Follow the one-face, position, angle, light, focus and steadiness checks. **Auto capture** takes the exact frame that passes for 1.4 seconds continuously; **Capture now** is a manual override. The camera view is mirrored, while the composite preserves camera orientation. The stream stops after capture, close, Escape, switching cameras, or hiding the page.
-3. Alternatively, **Upload a photo** (JPEG, PNG, or WebP; up to 25 MB). The largest detected face is selected initially. Choose another person if several faces are detected.
-4. Adjust size, position, rotation, mirror, warmth, brightness, and edge softness. Drag directly on the portrait or focus it and use arrow keys; Shift moves ten pixels at a time. **Auto fit** restores automatic alignment.
-5. **Save portrait** downloads a PNG or JPEG at the selected frame's native resolution: 1024 × 1536 for the frontal test scenes, 1441 × 2161 for the original Misrah scenes, or 1312 × 1199 for the original sample. Export always uses the composite and omits adjustment guides.
-6. **Start fresh** clears the guest photograph and returns to the default frontal weaver scene. Saved downloads remain wherever the operator saved them.
+There are two printing modes:
 
-No face found? The photo stays loaded with manual positioning enabled. Use a clear, well-lit, front-facing photograph for the best result. If the detector cannot load, manual positioning remains available.
+1. **System print window (default):** Print my photo prepares a full-resolution JPEG and opens the browser/system dialog. Select the printer, 4 × 6 paper, suitable scaling, and disable browser headers/footers. Closing or cancelling keeps the portrait available. The browser cannot tell whether a physical print was produced.
+2. **Direct to selected Mac printer:** install the printer and its driver in macOS first. In admin, choose Direct printing, the printer, and a 4 × 6 media choice reported by that driver. Save settings. Print my photo then sends one 4 × 6 PDF to the local Mac print queue, without asking the guest to select a printer. Each request has a unique ID; repeating the same request cannot submit another job. There is no automatic fallback or retry after an uncertain submission.
 
-**Test live guidance with a sample** creates a simulated camera stream from the selected generated test person. The **Test person** menu can also select the current scene's own face for calibration; use an independent generated person to test replacement quality. Its clear, dark, blurred, moving, two-face and no-face modes exercise the actual detector and capture rules without using a webcam. This is a diagnostic stream, not a captured guest or a hardware benchmark.
+Both routes fit the complete portrait without cropping. The direct PDF uses a 4 × 6 inch page. For DNP’s `6x4` media, it rotates the artwork into a 6 × 4 inch page to match the driver, keeping the portrait full-size. Driver media names vary: DNP may report `6x4`, while other drivers use `4x6` or an IPP size keyword. The app discovers those choices rather than assuming a universal paper code. Direct printing remains unavailable unless an installed printer reports a matching size. Gloss/matte finish and colour profile use the installed driver's defaults.
 
-**Automatic colour & exposure** is enabled by default. It applies restrained exposure/white balance plus the client artwork's sepia treatment, using luminance rather than forcing the reference person's complexion. It keeps the original photo in memory so the adjustment can be disabled. Manual brightness and warmth remain available. Live performance can be set to 5, 10 or 15 checks per second independently of the requested 30 fps camera feed.
+**DNP status research, checked 21 October 2026:**
 
-## Frames
+- [DNP's RX1HS product page](https://www.dnpphoto.com/products/printers/rx1hs) lists its Mac print driver, and describes the detailed status app (remaining media, printer status and lifetime count) as a **Windows** tool.
+- The booth reads the Mac/CUPS queue state, driver status message and state reasons. Paper empty, ribbon empty, cover open, paper jam and connection errors are shown when the installed driver exposes them. A known blocking error prevents a new direct submission. While the review or admin screen is open, status refreshes every five seconds.
+- [CUPS backend documentation](https://openprinting.github.io/cups/doc/api-filter.html) defines these driver-reported state reasons, including `media-empty`. An idle queue alone does **not** establish that the paper/ribbon is loaded or that USB hardware is ready. The panel labels the status source and shows remaining sheets as unavailable; it never estimates paper from the event's print count.
+- [DNP's European RX1HS download listing](https://www.dnpphoto.eu/en/support-and-downloads/drivers-tools/drivers/rx1hs-1) advertises driver 5.2.7 for macOS 11–15. That listing does not establish support for a newer event Mac's exact macOS version. Confirm the currently supported driver with DNP for that machine.
 
-The two frontal scenes and three guest headshots in `public/assets/frontal/` were created with the built-in Image Generation tool. They are synthetic alignment fixtures, not approved client artwork. Exact prompts and asset provenance are in `qa/frontal-generation-prompts.json`.
+The DS-RX1HS has **not** been physically connected during development. A real paper-out/unplug/reload test is required to establish exactly which alerts its driver forwards. Exact remaining-paper telemetry would need a supported DNP hardware/status integration beyond this queue connection. No driver, firmware, printer configuration, or physical print was changed during these checks.
 
-The three Misrah scenes are extracted copies of the client PDF artwork. The local detector prepares a face contour, target eye positions, normalised target head pose, and colour statistics for each scene. Their masks are prototype masks and should be refined against real guest portraits before an event. The original sample remains available as another scene; its blue placeholder is removed with a restricted chroma mask.
+Print jobs go through macOS's local CUPS socket, with local TCP as a fallback. Guest JPEGs are converted to PDF in a private temporary folder and removed after submission; the OS manages its own spool and retention. A timeout produces an uncertain status and asks the operator to inspect the Mac queue before trying again.
 
-**Add your own frame** accepts PNGs. One enclosed transparent region is inferred as the face opening. An opaque PNG uses a movable oval: enable **Adjust frame opening**, drag it into place, resize its width and height, then disable the guide. Custom frames are kept in memory for the current session. Large custom frames are resized to at most 4096 pixels on their longest side; photographs to at most 2400 pixels. Images above 36 megapixels are rejected to keep memory use bounded.
+## 16 GB Mac mini profile
 
-Prepare one opening per template for this MVP. A transparent background touching the image border is deliberately excluded from automatic opening detection.
+The default **Efficient** profile uses one 1280 × 960 camera request, capped at 30 fps, with face checks at 5 Hz. Only one analysis request is in flight; slow frames are skipped rather than queued. Analysis is bounded to 640 px on its longest side and exact-frame still snapshots to 1600 px. Final portraits retain the artwork's full size (1024 × 1536 for the two bundled frontal scenes).
 
-## Local architecture
+The guest screen skips the hidden live composite and its per-frame tone correction; final stills still receive tone correction. Full-size prepared template caching is capped at three, the library uses small thumbnails, test people and legacy templates are omitted from ordinary guest startup, and worker buffers are reused during live checks and released after still processing. Starting a new guest clears the active photo.
 
-`Camera → exact-frame snapshot → paced worker pose/quality/tone → live composite → steady-pose auto capture → full-resolution correction → PNG/JPEG`
+These choices target a 16 GB Apple-silicon setup. They are not an M6 benchmark or a guarantee of a sustained frame rate. The CPU/WebAssembly pipeline does not use Core ML or Apple's Neural Engine. Run an extended session on the actual Mac, browser, camera, display and lighting before an event. Select 10 Hz in admin if that machine benefits from faster guidance.
 
-- `public/app.js` owns the image session, camera connection, compositing, adjustments, and export.
-- `public/guest-flow.js` owns kiosk navigation, video playback, print preparation, retry, cancellation and idle cleanup.
-- `public/assets/lights.mp4` is a bundled silent, four-second 1280 × 720 lights sequence. Its editable HyperFrames source is in `../videos/photobooth-lights/`.
-- `public/live-camera.js` owns the live stream, pacing, quality feedback, continuous hold, manual/auto capture and live composite. Only one analysis request is in flight; frames are skipped instead of queued.
-- `public/detector-worker.js` runs inference, quality analysis and tone processing off the UI thread. IMAGE mode supports four faces for uploads; VIDEO mode checks up to two faces so multiple guests block auto capture. One selected face is inserted per portrait.
-- `public/live-quality.js` contains pose decomposition, quality measures, capture policy and bounded tone correction. See `IMPLEMENTATION.md` for the rough implementation and starting thresholds.
-- `public/geometry.js` contains alignment and transparent-opening geometry.
-- `public/vendor/` and `public/models/` bundle all model/runtime resources locally. There are no runtime CDN dependencies, fonts, analytics, or external services.
-- `server.py` serves only `public/`, binds only to `127.0.0.1`, accepts no upload endpoint, and writes no photographs. Its content policy restricts outgoing requests to the same local origin.
-- Guest images, camera frames, face landmarks, and custom frames stay in browser memory. The app does not use localStorage, IndexedDB, or persistent guest history. Refresh/Start fresh clears the active photo. Browser downloads are explicitly saved files.
+## Weekly photo folders and storage
 
-## Scope and next steps
+Automatic saving is **on by default**. Every successfully generated guest portrait is saved as a high-quality JPEG (quality 94%, full output dimensions) before review. Original webcam frames, PNG duplicates and print PDFs are not retained in the archive. Each retake is another capture and gets its own file; reprints and retransmissions reuse the existing capture and do not create another archive copy. Sample/simulated sessions are excluded.
 
-This is geometric face insertion with automated tone correction and soft edges. It preserves the source face and expression. Live guidance asks for a suitable head angle; it does not synthesize an unseen side of the face or a new light direction. Large pose differences, side profiles, strong shadows, hair, glasses, and occlusions can reduce quality. Frontal scenes reduce the source/target perspective difference, but do not remove forehead/chin seams or guarantee a photorealistic result. The pose estimates and quality thresholds require camera-specific event calibration. A soft frontal light is the best starting setup.
+The default folder is `photos/` beside the app:
 
-An Apple-silicon Mac mini with 24 GB RAM is a reasonable deployment target for this CPU/WASM implementation. This is an engineering assessment, not a measured Mac mini benchmark. The exact chip, camera, display and lighting still need a sustained test on the event machine. No Python processing packages or additional model downloads are needed to run this version; Python only serves the local files. Native packaging, silent printer integration and neural identity swapping remain later upgrades.
+```
+photos/
+  2026-W43/
+    2026-10-21_14-25-02_<capture-id>.jpg
+  2026-W44/
+    2026-10-26_09-10-11_<capture-id>.jpg
+```
 
-## Dependency provenance
+Folders use ISO week years/numbers, **Monday–Sunday in Asia/Dubai (UTC+4)**. A week that crosses New Year belongs to its ISO week year. Names include the capture UUID, so simultaneous photos cannot overwrite each other. A retried save stays in its originally assigned week, even after a restart or week rollover.
 
-- MediaPipe Tasks Vision **1.1.1**, npm package `@mediapipe/tasks-vision`, Apache-2.0. Bundled runtime and license notices are in `public/vendor/` and `THIRD_PARTY_NOTICES.txt`.
-- Face Landmarker model bundle, `face_landmarker/float16/1`, retrieved from Google's official model storage. Model provenance is in `THIRD_PARTY_NOTICES.txt`.
-- Generated frontal test fixtures: built-in Image Generation, fictional adult identities; exact prompts in `qa/frontal-generation-prompts.json`.
-- Artwork and sample face: user-supplied reference images, retained as copies under `public/assets/`. Synced project sources were not modified.
+Measured with Chrome's actual canvas encoder on the existing 1024 × 1536 finished sample:
 
-For development, `npm ci --ignore-scripts` restores the pinned dependency. Runtime assets are already copied into `public/vendor`; npm is not used by the local server. Run `npm test` for geometry, pose, quality, continuous-hold and colour regression checks. Guest flow and export verification is in `qa/guest-verification.md`. Frontal fixture verification is in `qa/frontal-verification.md`; live camera verification is in `qa/live-verification.md`; `qa/verification.md` records the first MVP.
+| Format | Sample size | 30,000 copies |
+| --- | ---: | ---: |
+| Archive JPEG, quality 94% | 0.470 MB | 14.10 GB |
+| Print JPEG, quality 98% | 0.769 MB | 23.08 GB |
+| PNG | 3.296 MB | 98.87 GB |
 
-## Kiosk flow verification
+These are sample-derived estimates in decimal MB/GB, not fixed sizes. **Budget about 15–30 GB for 30,000 final JPEGs with the included artwork; keep 50 GB free** for larger artwork and additional retakes. A separate backup needs additional space. The Storage tab calculates an updated 30,000-photo estimate from the actual archived average. It shows a low-space warning below 5 GiB free and refuses new writes that would leave less than 1 GiB. It never automatically deletes photos.
 
-Run `npm test` for image geometry, pose, quality and tone checks. For the full browser flow, start the local server and run `node scripts/verify-kiosk.mjs` with Playwright available. Set `PHOTOBOOTH_URL` if the server is not at port 8766, and optionally `PLAYWRIGHT_PATH` to an existing Playwright `index.mjs` installation. Google Chrome must be installed. This development check uses explicit simulated-camera fixtures, exercises all six templates, cancellation, retake, printing, export, idle cleanup, phone layout and permission denial, and saves QA captures under `qa/`. The operator studio is also checked. It does not validate a real camera or physical printer.
+Use `--photos-dir "/Volumes/Event Drive/Misrah Photos"` to choose an archive on another drive. The drive must remain connected; an unavailable Mac external volume produces an error rather than silently falling back to internal storage. With a custom `--data-dir` and no `--photos-dir`, the archive goes into that data directory's `photos/` folder. Archive folders inside `public/` are rejected.
+
+A save uses a private temporary file, flushes it to disk, and atomically renames it. Persistent capture IDs prevent duplicate files after a lost response. Failed saves display an alert, pause clearing/idle reset of the current photo, and expose **Retry saving current photo** in admin Storage. Retry before closing the browser; the current image is retained in that browser's memory. An operator can explicitly pause automatic saving to continue without an archive. Existing archived photos remain. Copy completed weekly folders to a separate backup drive.
+
+## Local data and privacy
+
+`.local-data/` contains SQLite settings/counters/job/archive metadata and reusable artwork/thumbnails. The default `photos/` folder contains the finished guest JPEGs. Both are outside `public/`, excluded from Git and distribution ZIPs, and intentionally survive guest resets and restarts. Preserve both folders when moving the booth. The archive is not exposed as a web gallery.
+
+Original camera frames, face landmarks and intermediate corrected images stay in browser memory and clear with the guest session. Finished JPEGs are saved locally by default. Direct printing also sends the final image to the loopback service and selected OS queue; the OS manages its separate spool. Explicit downloads are additional saved files. No cloud service or analytics is contacted. The loopback API validates host/origin and requires a same-origin request token for writes. Guest wording reflects whether automatic saving is enabled.
+
+The old preparation studio remains at `/studio.html` for diagnostics, separate from the frontal-only guest library. `/?sample=woman`, `?sample=man`, or `?sample=bearded` renders clearly labelled fictional sample portraits; `?camera=sample` exercises simulated capture. Sample modes neither archive nor affect activation usage. The plain address uses the configured camera.
+
+## Development and verification
+
+`npm ci --ignore-scripts` restores the pinned MediaPipe development dependency. Runtime resources are already bundled. Run:
+
+```
+npm test
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+For browser verification, start a disposable data directory with `python3 server.py --port 8767 --no-open --data-dir /tmp/misrah-qa`. With Playwright and Chrome available, run `PHOTOBOOTH_URL=http://127.0.0.1:8767 node scripts/verify-kiosk.mjs`, then `node scripts/verify-admin.mjs` with the same URL. `PLAYWRIGHT_PATH` can point to an existing Playwright `index.mjs` installation.
+
+The kiosk script covers the real local model, both frontal templates, lights, cancellation, automatic capture, retake, export, print layout, idle cleanup, mobile layout, denied camera and studio startup. The admin script checks shortcut access, saved settings, accepted frontal imports, rejection of blank/angled inputs, library persistence and visibility, deduplicated counts, CSV export, and native-print/error UI with a mock bridge. Python checks cover persistence, print deduplication under concurrency, paper/ribbon faults, timeouts, completion/cancellation accounting and temporary-photo handling. Hardware output is not mocked as a successful physical print.
+
+The archive browser check is `node scripts/verify-archive.mjs` against the same disposable server; it saves only fictional QA fixtures.
+
+See `IMPLEMENTATION.md`, `qa/v07-verification.md`, and `THIRD_PARTY_NOTICES.txt` for implementation details, verification evidence and model/runtime provenance.

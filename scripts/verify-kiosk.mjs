@@ -22,7 +22,7 @@ try {
   assert.equal(await page.locator('body').getAttribute('data-step'), 'welcome');
   await shot('welcome');
   await page.locator('#touch-start').click();
-  assert.equal(await page.locator('#scene-list .frame-card:enabled').count(), 6);
+  assert.equal(await page.locator('#scene-list .frame-card:enabled').count(), 2);
   await shot('templates');
   // Cancelling while camera acquisition and the light clip overlap must not capture later.
   await page.locator('#frontal-weaver').click();
@@ -64,7 +64,7 @@ try {
   await waitStep('result');
   await page.locator('#choose-another').click();
   await waitStep('choose');
-  // Exercise all six calibrated templates through the real model/compositor.
+  // Exercise both frontal portraits through the real model/compositor.
   // Scene references are explicit internal fixtures, never represented as real guests.
   await page.evaluate(() => { document.getElementById('sample-person').value = 'reference'; });
   const ids = await page.locator('#scene-list .frame-card').evaluateAll(items => items.map(item => item.id));
@@ -90,12 +90,15 @@ try {
   await page.evaluate(() => { Date.now = () => window.realNow() + 125000; });
   await waitStep('welcome');
   await page.evaluate(() => { Date.now = window.realNow; });
-  // Phone layout: no horizontal overflow, all six touch targets remain available.
+  // Phone layout: no horizontal overflow, both portrait touch targets remain available.
   await page.setViewportSize({ width: 390, height: 844 });
   await shot('mobile-welcome');
   await page.locator('#touch-start').click();
   await shot('mobile-templates');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  const cards = await page.locator('#scene-list .frame-card').evaluateAll(items => items.map(item => ({ x: item.getBoundingClientRect().x, y: item.getBoundingClientRect().y })));
+  assert.equal(cards[0].y, cards[1].y);
+  assert.ok(cards[1].x > cards[0].x);
   // Keep the default independent test guest for the mobile result.
   await page.evaluate(() => { document.getElementById('sample-person').value = 'frontal-guest-woman'; });
   await page.locator('#frontal-weaver').click();
@@ -121,5 +124,5 @@ try {
   await page.waitForFunction(() => document.getElementById('model-status').textContent.includes('ready'), null, { timeout: 60000 });
   assert.equal(await page.locator('#photo-upload').count(), 1);
   assert.deepEqual(errors, []);
-  console.log('PASS welcome, lights, cancellation, auto-capture, retry, six templates, print layout, export, finish, idle cleanup, phone, permission failure and operator startup.');
+  console.log('PASS welcome, lights, cancellation, auto-capture, retry, two frontal portraits, print layout, export, finish, idle cleanup, phone, permission failure and operator startup.');
 } finally { await browser.close(); }

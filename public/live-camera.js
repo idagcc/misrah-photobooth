@@ -4,8 +4,8 @@ const $ = id => document.getElementById(id);
 const canvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
 export class LiveCamera {
-  constructor({ detect, ready, getFrame, capture, getSample, onClose = () => {}, canCapture = () => true }) {
-    Object.assign(this, { detect, ready, getFrame, onCapture: capture, getSample, onClose, canCapture });
+  constructor({ detect, ready, getFrame, capture, getSample, getSettings = () => ({}), onClose = () => {}, canCapture = () => true }) {
+    Object.assign(this, { detect, ready, getFrame, onCapture: capture, getSample, getSettings, onClose, canCapture });
     this.dialog = $('camera-dialog'); this.video = $('camera-video'); this.stream = null;
     this.guestExperience = document.body.dataset.experience === 'guest';
     this.epoch = 0; this.timer = null; this.sampleTimer = null; this.inFlight = false;
@@ -38,6 +38,7 @@ export class LiveCamera {
   }
   close() { const wasOpen = this.dialog.open; this.stop(); if (wasOpen) { this.dialog.close(); this.onClose(this.capturing); } }
   async open({ deviceId, sample = false } = {}) {
+    deviceId ??= this.getSettings().cameraId || undefined;
     this.stop(); const epoch = this.epoch; this.sample = sample; this.capturing = false;
     if (this.guestExperience) { $('auto-capture').checked = true; $('retry-camera').hidden = true; $('capture-countdown').hidden = true; }
     $('live-correction').checked = $('auto-tone').checked;
@@ -114,15 +115,18 @@ export class LiveCamera {
     this.inFlight = true; this.lastVideoTime = this.video.currentTime;
     let result;
     try {
-      const w = 640, h = Math.round(w * this.video.videoHeight / this.video.videoWidth);
+      const factor = Math.min(1, 640 / Math.max(this.video.videoWidth, this.video.videoHeight));
+      const w = Math.round(this.video.videoWidth * factor), h = Math.round(this.video.videoHeight * factor);
       if (this.analysis.width !== w || this.analysis.height !== h) { this.analysis.width = w; this.analysis.height = h; }
-      if (this.snapshot.width !== this.video.videoWidth || this.snapshot.height !== this.video.videoHeight) {
-        this.snapshot.width = this.video.videoWidth; this.snapshot.height = this.video.videoHeight;
+      const snapshotScale = Math.min(1, 1600 / Math.max(this.video.videoWidth, this.video.videoHeight));
+      const sw = Math.round(this.video.videoWidth * snapshotScale), sh = Math.round(this.video.videoHeight * snapshotScale);
+      if (this.snapshot.width !== sw || this.snapshot.height !== sh) {
+        this.snapshot.width = sw; this.snapshot.height = sh;
       }
-      this.snapshotCtx.drawImage(this.video, 0, 0);
+      this.snapshotCtx.drawImage(this.video, 0, 0, sw, sh);
       this.analysisCtx.drawImage(this.snapshot, 0, 0, w, h);
       const frame = this.getFrame();
-      result = await this.detect(this.analysis, { live: true, timestamp: started, correct: $('auto-tone').checked, targetQuality: frame.quality });
+      result = await this.detect(this.analysis, { live: true, timestamp: started, correct: !this.guestExperience && $('auto-tone').checked, targetQuality: frame.quality });
       if (epoch !== this.epoch) return;
       const faces = result.landmarks.map(p => faceGeometry(p, w, h));
       const assessment = assessFrame({ faces, poses: result.poses, qualities: result.qualities, width: w, height: h,
@@ -139,7 +143,7 @@ export class LiveCamera {
       const fps = this.lastFrameAt ? 1000 / (now - this.lastFrameAt) : 0; this.lastFrameAt = now;
       const p = result.poses[0];
       $('live-telemetry').textContent = `${this.sample ? 'SIMULATED · ' : ''}${fps ? fps.toFixed(1) : '—'} checks/s · ${result.elapsed} ms · ${p ? `turn ${Math.round(p.yaw)}° / chin ${Math.round(p.pitch)}°` : 'looking for a face'}`;
-      this.paintPreview(result.corrected || this.analysis, f, frame);
+      if (!this.guestExperience) this.paintPreview(result.corrected || this.analysis, f, frame);
       if (hold.capture) { this.capture(true); return; }
     } catch (error) {
       if (epoch !== this.epoch) return;
@@ -182,7 +186,7 @@ export class LiveCamera {
     this.capturing = true; $('capture').disabled = true; $('auto-capture').disabled = true;
     // Guest shutter and auto capture use the exact full-resolution scored frame.
     const source = automatic || this.guestExperience ? this.snapshot : this.video;
-    const image = canvas(this.video.videoWidth, this.video.videoHeight); image.getContext('2d').drawImage(source, 0, 0);
+    const image = canvas(source === this.snapshot ? this.snapshot.width : this.video.videoWidth, source === this.snapshot ? this.snapshot.height : this.video.videoHeight); image.getContext('2d').drawImage(source, 0, 0);
     const label = this.sample ? ($('sample-person').value === 'reference' ? 'SIMULATED · SCENE REFERENCE' : 'SIMULATED · AI TEST PERSON') : automatic ? 'AUTO CAMERA CAPTURE' : 'CAMERA CAPTURE';
     this.close(); await this.onCapture(image, label);
   }

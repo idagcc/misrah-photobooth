@@ -1,0 +1,112 @@
+// Run on a disposable --data-dir. Native printing is mocked; no printer is used.
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+const { chromium } = await import(process.env.PLAYWRIGHT_PATH || 'playwright');
+const base = process.env.PHOTOBOOTH_URL || 'http://127.0.0.1:8767';
+const root = new URL('../', import.meta.url);
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1080 }, acceptDownloads: true });
+const page = await context.newPage(), errors = [];
+page.on('pageerror', error => errors.push(error.message));
+const boot = async () => { await page.goto(base); await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 }); };
+const admin = async () => { await page.keyboard.press('Control+Alt+Shift+A'); await page.locator('#admin-dialog').waitFor(); };
+try {
+  await boot();
+  assert.equal(await page.locator('#admin-dialog').isVisible(), false);
+  await admin();
+  await page.locator('#admin-printer-status').filter({ hasText: /No printer|unavailable/ }).waitFor();
+  await page.screenshot({ path: new URL('qa/admin-devices.png', root).pathname });
+  await page.locator('#admin-rate').selectOption('10');
+  await page.locator('#admin-settings button[type=submit]').click();
+  await page.locator('#admin-feedback').filter({ hasText: 'Device settings saved' }).waitFor();
+  await page.reload();
+  await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
+  await admin();
+  assert.equal(await page.locator('#admin-rate').inputValue(), '10');
+  await page.locator('#admin-rate').selectOption('5');
+  await page.locator('#admin-settings button[type=submit]').click();
+  await page.locator('[data-admin-tab=portraits]').click();
+  await page.locator('#admin-portrait-name').fill('QA frontal portrait');
+  await page.locator('#admin-portrait-file').setInputFiles(new URL('public/assets/frontal/frontal-weaver.png', root).pathname);
+  await page.locator('#admin-add-button').click();
+  await page.locator('#admin-feedback').filter({ hasText: 'Portrait added' }).waitFor({ timeout: 45000 });
+  const row = page.locator('.admin-library-row').filter({ hasText: 'QA frontal portrait' });
+  await row.waitFor();
+  await page.screenshot({ path: new URL('qa/admin-portraits.png', root).pathname });
+  // A large image without a face must not enter the guest library.
+  const blank = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 1000; c.height = 1500; c.getContext('2d').fillRect(0, 0, 1000, 1500); return c.toDataURL('image/png').split(',')[1]; });
+  await page.locator('#admin-portrait-name').fill('No face');
+  await page.locator('#admin-portrait-file').setInputFiles({ name: 'blank.png', mimeType: 'image/png', buffer: Buffer.from(blank, 'base64') });
+  await page.locator('#admin-add-button').click();
+  await page.locator('#admin-feedback').filter({ hasText: 'exactly one clear face' }).waitFor();
+  assert.equal(await page.locator('.admin-library-row').filter({ hasText: 'No face' }).count(), 0);
+  // Explicitly test a side-facing source through the actual detector.
+  await page.locator('#admin-portrait-name').fill('Side-facing test');
+  await page.locator('#admin-portrait-file').setInputFiles(new URL('public/assets/misrah-1.png', root).pathname);
+  await page.locator('#admin-add-button').click();
+  await page.locator('#admin-feedback').filter({ hasText: /straight-facing|exactly one clear face/ }).waitFor({ timeout: 45000 });
+  assert.equal(await page.locator('.admin-library-row').filter({ hasText: 'Side-facing test' }).count(), 0);
+  await page.locator('#admin-close').click();
+  await page.locator('#touch-start').click();
+  assert.equal(await page.locator('#scene-list .frame-card').count(), 3);
+  const imported = await page.locator('#scene-list .frame-card').filter({ hasText: 'QA frontal portrait' }).getAttribute('id');
+  await page.reload();
+  await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
+  await page.locator('#touch-start').click();
+  assert.equal(await page.locator(`#${imported}`).count(), 1);
+  await page.goto(`${base}/?camera=sample`);
+  await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
+  await page.locator('#touch-start').click();
+  await page.locator(`#${imported}`).click();
+  await page.waitForFunction(() => document.body.dataset.step === 'result', null, { timeout: 45000 });
+  await admin();
+  await page.locator('[data-admin-tab=portraits]').click();
+  await page.locator('.admin-library-row').filter({ hasText: 'QA frontal portrait' }).locator('button').click();
+  await page.locator('#admin-feedback').filter({ hasText: 'hidden' }).waitFor();
+  await page.locator('#admin-close').click();
+  assert.equal(await page.locator(`#${imported}`).count(), 0);
+  assert.equal(await page.locator('body').getAttribute('data-step'), 'choose');
+  assert.equal(await page.locator('#download').isEnabled(), false);
+  // Actual aggregate API, with deduplication and restart-persisted SQLite state.
+  const cfg = await (await fetch(`${base}/api/bootstrap`)).json(), event = { id: crypto.randomUUID(), template: 'frontal-weaver', kind: 'selection' };
+  const before = await (await fetch(`${base}/api/stats`)).json();
+  for (let i = 0; i < 2; i++) assert.equal((await fetch(`${base}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Booth-Token': cfg.token }, body: JSON.stringify(event) })).status, 200);
+  const after = await (await fetch(`${base}/api/stats`)).json();
+  assert.equal(after.totals.selections, before.totals.selections + 1);
+  assert.equal((await fetch(`${base}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Booth-Token': cfg.token, Origin: 'https://example.com' }, body: JSON.stringify(event) })).status, 403);
+  await admin();
+  await page.locator('[data-admin-tab=usage]').click();
+  await page.locator('#admin-usage-rows tr').first().waitFor();
+  await page.screenshot({ path: new URL('qa/admin-usage.png', root).pathname });
+  const downloading = page.waitForEvent('download'); await page.locator('#admin-export').click();
+  assert.equal((await downloading).suggestedFilename(), 'misrah-usage.csv');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: new URL('qa/admin-mobile.png', root).pathname });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  // Exercise the production print handler with a mock bridge on a separate page.
+  const harness = await context.newPage();
+  harness.on('pageerror', error => errors.push(error.message));
+  const html = (await readFile(new URL('public/index.html', root), 'utf8')).replace('<script type="module" src="app.js"></script>', '');
+  await harness.route('**/print-harness', route => route.fulfill({ contentType: 'text/html', body: html }));
+  await harness.goto(`${base}/print-harness`);
+  await harness.evaluate(async () => {
+    const { createGuestFlow } = await import('/guest-flow.js');
+    window.nativeCalls = 0; window.dialogCalls = 0; window.failPaper = false;
+    window.print = () => { window.dialogCalls++; };
+    const client = { config: { settings: { printMode: 'native' } }, simulated: false, track() {}, async request(path) {
+      if (path === 'print') { window.nativeCalls++; await new Promise(resolve => setTimeout(resolve, 30)); return window.failPaper ? { state: 'failed', message: 'Paper is empty.' } : { state: 'queued', job_id: 42 }; }
+      return { selected: { blocked: false }, error: null };
+    } };
+    const flow = createGuestFlow({ client, getTemplate: () => 'frontal-weaver', hasPhoto: () => true, printImage: () => 'fixture', camera: { open() {}, close() {} }, clear: async () => {} });
+    flow.show('result'); document.getElementById('print-photo').disabled = false;
+    document.getElementById('print-photo').click(); document.getElementById('print-photo').click();
+  });
+  await harness.waitForFunction(() => document.getElementById('status').textContent.includes('print queue'));
+  assert.equal(await harness.evaluate(() => window.nativeCalls), 1);
+  assert.equal(await harness.evaluate(() => window.dialogCalls), 0);
+  await harness.evaluate(() => { window.failPaper = true; document.getElementById('print-photo').click(); });
+  await harness.waitForFunction(() => document.getElementById('status').textContent.includes('Paper is empty'));
+  assert.equal(await harness.locator('#print-photo').isEnabled(), true);
+  assert.deepEqual(errors, []);
+  console.log('PASS hidden shortcut, persistent settings, frontal upload, blank/side-facing rejection, library persistence, visibility, deduplicated totals, CSV, mobile admin, native print and paper-out UI. No hardware print was sent.');
+} finally { await browser.close(); }

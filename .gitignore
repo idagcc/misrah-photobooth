@@ -6,4 +6,6 @@ __pycache__/
 !.env.example
 .venv/
 *.log
+.local-data/
+photos/
 

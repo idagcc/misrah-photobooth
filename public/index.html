@@ -9,17 +9,18 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23171b18'/%3E%3Cpath d='M18 18h28v28H18zM25 10h14M25 54h14M10 25v14M54 25v14' fill='none' stroke='%23c8aa71' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="guest.css">
+  <link rel="stylesheet" href="admin.css">
   <script type="module" src="app.js"></script>
 </head>
 <body data-experience="guest" data-step="welcome">
-  <header class="guest-header"><a class="guest-brand" href="./" aria-label="Misrah home"><span aria-hidden="true">✧</span> MISRAH <b>STUDIO</b></a><nav class="guest-progress" aria-label="Photo experience"><span data-progress="choose">01 <b>Choose</b></span><i></i><span data-progress="camera">02 <b>Capture</b></span><i></i><span data-progress="result">03 <b>Keep</b></span></nav></header>
+  <header class="guest-header"><a class="guest-brand" href="./" aria-label="Misrah home"><span aria-hidden="true">✧</span> MISRAH <b>STUDIO</b></a><nav class="guest-progress" aria-label="Photo experience"><span data-progress="choose">01 <b>Choose</b></span><i></i><span data-progress="camera">02 <b>Capture</b></span><i></i><span data-progress="result">03 <b>Print</b></span></nav></header>
   <section id="welcome-step" class="welcome-screen" aria-labelledby="welcome-title">
-    <div class="welcome-copy"><p class="eyebrow">THE MISRAH PHOTO EXPERIENCE</p><h1 id="welcome-title" tabindex="-1">Step into<br>the story.</h1><p class="welcome-description">A little history. A moment of you.<br>Choose a heritage portrait and make it your own.</p><button id="touch-start" class="button primary" disabled>Touch to start <span aria-hidden="true">↗</span></button><p id="welcome-status" role="status">Preparing your experience…</p><div class="welcome-how"><span>01 &nbsp; Choose</span><span>02 &nbsp; Capture</span><span>03 &nbsp; Print</span></div></div>
-    <div class="welcome-gallery" aria-hidden="true"><figure class="welcome-photo back"><img src="assets/misrah-1.png" alt=""><figcaption>A story of the shore.</figcaption></figure><figure class="welcome-photo front"><img src="assets/frontal/frontal-weaver.png" alt=""><figcaption>A moment, made timeless. <em>Misrah</em></figcaption></figure><span class="gallery-stamp">THE HERITAGE<br>COLLECTION &nbsp; ✧</span></div>
+    <div class="welcome-copy"><p class="eyebrow">THE MISRAH PHOTO EXPERIENCE</p><h1 id="welcome-title" tabindex="-1">Your face.<br>A timeless story.</h1><p class="welcome-description">Choose a portrait. Look at the camera.<br>Take home a little piece of history.</p><button id="touch-start" class="button primary" disabled>Touch to start <span aria-hidden="true">→</span></button><p id="welcome-status" role="status">Preparing your experience…</p><div class="welcome-how"><span>1 &nbsp; Choose</span><span>2 &nbsp; Capture</span><span>3 &nbsp; Print</span></div></div>
+    <div class="welcome-gallery" aria-hidden="true"><figure class="welcome-photo"><img src="assets/frontal/frontal-weaver.png" alt=""><figcaption>The heritage collection <em>Misrah</em></figcaption></figure></div>
     <p class="welcome-footer">YOUR PORTRAIT. YOUR KEEPSAKE. <span>Private, and made right here.</span></p>
   </section>
   <main class="guest-main" hidden>
-    <div class="guest-intro"><p class="eyebrow">THE HERITAGE PORTRAIT EXPERIENCE</p><h1 id="experience-title" tabindex="-1">Which story will you step into?</h1><p id="experience-subtitle">Tap a template. Your portrait experience starts right away.</p></div>
+    <div class="guest-intro"><p class="eyebrow">THE HERITAGE PORTRAIT EXPERIENCE</p><h1 id="experience-title" tabindex="-1">Choose your portrait.</h1><p id="experience-subtitle">Tap a portrait to begin. Then look straight at the camera.</p></div>
     <div class="guest-workspace">
       <section class="guest-photograph" aria-label="Your portrait">
         <figure class="photo-print">
@@ -30,19 +31,15 @@
       </section>
       <aside class="guest-actions">
         <div id="choose-step">
-          <p class="step-label">01 — CHOOSE YOUR TEMPLATE</p><h2>Find your story.</h2><p class="scene-intro">Six settings. One unforgettable you.</p>
+          <p class="step-label">01 — CHOOSE A PORTRAIT</p><h2>Choose a portrait.</h2><p class="scene-intro">Straight-facing portraits, made for you.</p>
 <div id="scene-list" class="scene-list">
-          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/frontal/frontal-weaver.png" alt="Generated straight-on weaver scene"><span><strong>The basket weaver</strong><small>Courtyard collection</small></span><span class="check" hidden>✓</span></button>
-          <button id="frontal-pearl-trader" class="frame-card" disabled><img src="assets/frontal/frontal-pearl-trader.png" alt="Generated straight-on pearl trader scene"><span><strong>The pearl trader</strong><small>Coastal collection</small></span><span class="check" hidden>✓</span></button>
-          <button id="misrah-1" class="frame-card" disabled><img src="assets/misrah-1.png" alt="Misrah pearling portrait"><span><strong>Pearls of the shore</strong><small>Misrah collection</small></span><span class="check" hidden>✓</span></button>
-          <button id="misrah-2" class="frame-card" disabled><img src="assets/misrah-2.png" alt="Misrah basket-weaving portrait"><span><strong>The courtyard</strong><small>Misrah collection</small></span><span class="check" hidden>✓</span></button>
-          <button id="misrah-3" class="frame-card" disabled><img src="assets/misrah-3.png" alt="Misrah woven arch portrait"><span><strong>Woven memories</strong><small>Misrah collection</small></span><span class="check" hidden>✓</span></button>
-          <button id="heritage-frame" class="frame-card" disabled><img src="assets/demo-portrait.png" alt="Traditional artisan portrait"><span><strong>The artisan</strong><small>Heritage collection</small></span><span class="check" hidden>✓</span></button>
+          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/frontal/frontal-weaver.png" alt="Straight-facing basket weaver portrait"><span><strong>The basket weaver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
+          <button id="frontal-pearl-trader" class="frame-card" disabled><img src="assets/frontal/frontal-pearl-trader.png" alt="Straight-facing pearl trader portrait"><span><strong>The pearl trader</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
         </div>
           <button id="open-camera" class="button primary guest-camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></svg>Use selected template<span aria-hidden="true">↗</span></button>
-          <p class="camera-note">Tap any template to start. Look at the camera; we’ll do the rest.</p>
+          <p class="camera-note">Your photo is taken automatically. Just look straight ahead.</p>
         </div>
-        <div id="result-step" hidden><p class="step-label">03 — YOUR MOMENT, CAPTURED</p><h2>It looks good on you.</h2><p class="result-intro">Your own piece of the story.<br>A keepsake to take home.</p><button id="print-photo" class="button primary wide" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4V8h16v9h-3M7 14h10v7H7z"/></svg>Print my photo <span aria-hidden="true">↗</span></button><button id="new-session" class="button secondary wide">↻ &nbsp; Retake photo</button><div class="result-links"><button id="choose-another">Choose another template</button><button id="download" disabled>Save a copy ↓</button></div><button id="finish-session" class="finish-button">Finish · Next guest <span aria-hidden="true">→</span></button><p class="print-note">4 × 6 inch photo · Choose your printer in the print window.</p><p id="sample-disclosure" class="sample-disclosure" hidden>Sample portrait with an AI-generated guest.</p></div>
+        <div id="result-step" hidden><p class="step-label">03 — YOUR MOMENT, CAPTURED</p><h2>Make it a keepsake.</h2><p class="result-intro">Print your portrait to take home.</p><p id="guest-save-alert" class="guest-print-alert" hidden role="alert"></p><p id="guest-print-alert" class="guest-print-alert" hidden role="alert"></p><button id="print-photo" class="button primary wide" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4V8h16v9h-3M7 14h10v7H7z"/></svg>Print my photo <span aria-hidden="true">↗</span></button><button id="new-session" class="button secondary wide">↻ &nbsp; Retake photo</button><div class="result-links"><button id="choose-another">Choose another portrait</button><button id="download" disabled>Save a copy ↓</button></div><button id="finish-session" class="finish-button">Finish · Next guest <span aria-hidden="true">→</span></button><p class="print-note">4 × 6 inch photo · Choose your printer in the print window.</p><p id="sample-disclosure" class="sample-disclosure" hidden>Sample portrait with an AI-generated guest.</p></div>
         <p id="status" class="guest-status" role="status" aria-live="polite">Preparing the photo booth…</p>
         <p class="guest-privacy"><span aria-hidden="true">◌</span> Your photo stays on this device.</p>
       </aside>
@@ -64,9 +61,9 @@
         <div class="test-guests" aria-label="Straight-on generated test faces">
           <div class="mini-heading">STRAIGHT-ON TEST FACES <span>AI</span></div>
           <div class="guest-grid">
-            <button id="frontal-guest-woman" class="guest-card" disabled aria-pressed="false"><img src="assets/frontal/frontal-guest-woman.png" alt="Generated frontal woman test portrait"><span>Woman</span></button>
-            <button id="frontal-guest-man" class="guest-card" disabled aria-pressed="false"><img src="assets/frontal/frontal-guest-man.png" alt="Generated frontal man test portrait"><span>Man</span></button>
-            <button id="frontal-guest-bearded" class="guest-card" disabled aria-pressed="false"><img src="assets/frontal/frontal-guest-bearded.png" alt="Generated frontal bearded man test portrait"><span>Bearded man</span></button>
+            <button id="frontal-guest-woman" class="guest-card" disabled aria-pressed="false"><img data-src="assets/frontal/frontal-guest-woman.png" alt="Generated frontal woman test portrait"><span>Woman</span></button>
+            <button id="frontal-guest-man" class="guest-card" disabled aria-pressed="false"><img data-src="assets/frontal/frontal-guest-man.png" alt="Generated frontal man test portrait"><span>Man</span></button>
+            <button id="frontal-guest-bearded" class="guest-card" disabled aria-pressed="false"><img data-src="assets/frontal/frontal-guest-bearded.png" alt="Generated frontal bearded man test portrait"><span>Bearded man</span></button>
           </div>
           <p id="guest-status" class="muted">Preparing straight-on test faces…</p>
         </div>
@@ -76,7 +73,7 @@
         <p id="template-status" class="muted">Preparing frontal and client scenes locally…</p>
         <label class="add-frame" for="frame-upload"><span>＋</span> Add your own frame <small>PNG with a transparent face opening</small></label>
         <input id="frame-upload" type="file" accept="image/png" class="file-input">
-        <p class="privacy-note"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 9V6a5 5 0 0 1 10 0v3M3 9h14v9H3z"/></svg><span>Only on this device.<br>Your photos are never uploaded.</span></p>
+        <p class="privacy-note"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 9V6a5 5 0 0 1 10 0v3M3 9h14v9H3z"/></svg><span>Only on this device.<br>Your photo stays on this Mac.</span></p>
       <fieldset id="face-controls" disabled>
           <div class="control-title"><span>FACE POSITION</span><button id="auto-fit" class="text-button">↗ Auto fit</button></div>
           <div class="slider-row"><label for="scale">Size</label><output id="scale-value">100%</output><input id="scale" type="range" min="55" max="190" value="100"></div>
@@ -99,7 +96,7 @@
     <span id="model-dot"></span><span id="model-status"></span>
   </div>
 <dialog id="camera-dialog">
-    <div id="lights-overlay" class="lights-overlay" hidden><video id="lights-video" src="assets/lights.mp4" muted playsinline preload="auto" aria-hidden="true"></video><div class="lights-copy"><p class="eyebrow">YOUR MOMENT IS ALMOST HERE</p><h2>Into the light.</h2><p>Look towards the camera. We’re getting ready.</p></div><button id="cancel-sequence" class="sequence-cancel">← Back to templates</button></div>
+    <div id="lights-overlay" class="lights-overlay" hidden><video id="lights-video" src="assets/lights.mp4" muted playsinline preload="auto" aria-hidden="true"></video><div class="lights-copy"><p class="eyebrow">YOUR MOMENT IS ALMOST HERE</p><h2>Into the light.</h2><p>Look towards the camera. We’re getting ready.</p></div><button id="cancel-sequence" class="sequence-cancel">← Back to portraits</button></div>
     <div class="dialog-heading"><div><p id="live-mode" class="eyebrow">YOUR PHOTOGRAPH</p><h2>Look straight ahead.</h2></div><button id="close-camera" class="icon-button" aria-label="Close camera">×</button></div>
     <p id="camera-guidance" class="camera-guidance" role="status" aria-live="polite">Starting the camera…</p>
     <div class="live-grid">
@@ -108,11 +105,11 @@
     </div>
     <progress id="hold-progress" value="0" max="1" aria-label="Steady pose progress"></progress>
     <p id="camera-status" role="status">Starting your camera…</p>
-    <div class="camera-actions"><button id="retry-camera" class="button secondary wide" hidden>Try camera again</button><label class="camera-choice">Camera <select id="camera-select" aria-label="Select camera"></select></label><label class="checkbox-label"><input id="auto-capture" type="checkbox"> Auto capture</label><label class="checkbox-label"><input id="live-correction" type="checkbox" checked> Auto tone</label><label>Performance<select id="live-rate" aria-label="Live guidance rate"><option value="10">Balanced · 10 checks/sec</option><option value="15">Fast · 15 checks/sec</option><option value="5">Low power · 5 checks/sec</option></select></label><button id="capture" class="button primary" disabled>Take picture now</button></div>
+    <div class="camera-actions"><button id="retry-camera" class="button secondary wide" hidden>Try camera again</button><label class="camera-choice">Camera <select id="camera-select" aria-label="Select camera"></select></label><label class="checkbox-label"><input id="auto-capture" type="checkbox"> Auto capture</label><label class="checkbox-label"><input id="live-correction" type="checkbox" checked> Auto tone</label><label>Performance<select id="live-rate" aria-label="Live guidance rate"><option value="10">Balanced · 10 checks/sec</option><option value="15">Fast · 15 checks/sec</option><option value="5" selected>Efficient · 5 checks/sec</option></select></label><button id="capture" class="button primary" disabled>Take picture now</button></div>
     <div id="sample-controls" class="sample-controls" hidden><label>Test person <select id="sample-person"><option value="frontal-guest-woman">Generated woman</option><option value="frontal-guest-man">Generated man</option><option value="frontal-guest-bearded">Generated bearded man</option><option value="reference">Scene's original face</option></select></label><label>Simulated condition <select id="sample-condition"><option value="good">Clear & steady</option><option value="dark">Too dark</option><option value="blur">Out of focus</option><option value="motion">Moving</option><option value="multiple">Two faces</option><option value="no-face">No face</option></select></label><p>This is a simulated stream from the selected test portrait. Generated people are fictional; no webcam is used.</p></div>
     <p id="live-telemetry" class="live-telemetry">Waiting for the camera</p>
   </dialog>
-  <dialog id="processing-dialog" aria-labelledby="processing-title"><div class="processing-inner"><video id="processing-video" src="assets/lights.mp4" loop muted playsinline preload="auto" aria-hidden="true"></video><div><span class="processing-mark" aria-hidden="true">✧</span><p class="eyebrow">A LITTLE PHOTO MAGIC</p><h2 id="processing-title" tabindex="-1">Making your moment.</h2><p>Preparing your heritage portrait…</p></div></div></dialog>
+  <dialog id="processing-dialog" aria-labelledby="processing-title"><div class="processing-inner"><video id="processing-video" src="assets/lights.mp4" loop muted playsinline preload="metadata" aria-hidden="true"></video><div><span class="processing-mark" aria-hidden="true">✧</span><p class="eyebrow">A LITTLE PHOTO MAGIC</p><h2 id="processing-title" tabindex="-1">Making your moment.</h2><p>Preparing your heritage portrait…</p></div></div></dialog>
   <div id="idle-notice" class="idle-notice" hidden role="status"><span>Still here? Your session ends in <b id="idle-seconds">20</b>s.</span><button id="keep-session" class="button secondary">Keep my session</button></div>
   <div id="print-sheet" aria-hidden="true"><img id="print-image" alt="Your Misrah portrait"></div>
   <dialog id="help-dialog"><div class="dialog-heading"><h2>A portrait in three steps.</h2><button id="close-help" class="icon-button" aria-label="Close help">×</button></div><ol class="help-steps"><li>Choose a scene.</li><li>Open the camera and look straight ahead.</li><li>Take your picture and save your portrait.</li></ol></dialog>
