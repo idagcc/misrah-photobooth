@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 try {
     Add-Type -AssemblyName System.Drawing
     Add-Type -AssemblyName ReachFramework
+    Add-Type -AssemblyName System.Printing
     $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
     $server = New-Object System.Printing.LocalPrintServer
     try {
