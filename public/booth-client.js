@@ -16,7 +16,7 @@ export class BoothClient {
       if (!response.ok) throw new Error(result.error || 'The local service is unavailable.');
       return result;
     } catch (error) {
-      if (error.name === 'AbortError') throw new Error(path === 'print' ? 'The local service took too long. Check the Mac print queue before printing again.' : 'The local service took too long. Please try again.');
+      if (error.name === 'AbortError') throw new Error(path === 'print' ? 'The local service took too long. Check the print queue before printing again.' : 'The local service took too long. Please try again.');
       throw error;
     } finally { clearTimeout(timer); }
   }

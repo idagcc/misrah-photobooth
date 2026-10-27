@@ -22,8 +22,9 @@ import time
 import uuid
 
 BUILTINS = [
-    {"id": "frontal-weaver", "name": "The basket weaver", "src": "assets/frontal/frontal-weaver.png"},
-    {"id": "frontal-pearl-trader", "name": "The pearl trader", "src": "assets/frontal/frontal-pearl-trader.png"},
+    {"id": "frontal-weaver", "name": "The basket weaver", "src": "assets/approved/basket-weaver.png"},
+    {"id": "frontal-pearl-trader", "name": "The pearl diver", "src": "assets/approved/pearl-diver.png"},
+    {"id": "misrah-sailor", "name": "The sailor", "src": "assets/approved/sailor.png"},
 ]
 DEFAULTS = {"cameraId": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True}
 EVENT_TIMEZONE = timezone(timedelta(hours=4), "Asia/Dubai")
@@ -272,6 +273,9 @@ class BoothService:
         self.photos_directory = Path(photos_directory or self.directory / "photos").resolve()
         self.lock = threading.RLock()
         self.print_lock = threading.Lock()
+        if printer is None and os.name == "nt":
+            from windows_printer import WindowsPrinter
+            printer = WindowsPrinter()
         self.printer = printer or CupsPrinter()
         self.db = sqlite3.connect(self.directory / "booth.sqlite3", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
@@ -289,7 +293,7 @@ class BoothService:
         self.db.execute("INSERT OR IGNORE INTO settings VALUES (1, ?)", (json.dumps(DEFAULTS),))
         for item in BUILTINS:
             self.db.execute("INSERT OR IGNORE INTO templates(id, name) VALUES (?, ?)", (item["id"], item["name"]))
-        self.db.execute("UPDATE jobs SET state='unknown', message='Server restarted before the print response was recorded. Check the Mac queue.' WHERE state='submitting'")
+        self.db.execute("UPDATE jobs SET state='unknown', message='Server restarted before the print response was recorded. Check the print queue.' WHERE state='submitting'")
         self.db.commit()
 
     def config(self):
@@ -299,6 +303,8 @@ class BoothService:
         sources = {item["id"]: item["src"] for item in BUILTINS}
         for item in templates:
             item["src"] = sources.get(item["id"], f"/api/template-images/{item['id']}.jpg")
+            if item["id"] in sources:
+                item["name"] = next(b["name"] for b in BUILTINS if b["id"] == item["id"])
             thumb = self.directory / "templates" / f"{item['id']}-thumb.jpg"
             item["thumbnail"] = f"/api/template-images/{item['id']}-thumb.jpg" if thumb.exists() else item["src"]
         return {"settings": settings, "templates": templates}
@@ -321,7 +327,7 @@ class BoothService:
         if value["printMode"] == "native":
             printers = self.printer.printers()
             if value["printer"] not in [p["id"] for p in printers]:
-                raise ValueError("Select a printer installed on this Mac.")
+                raise ValueError("Select a printer installed on this computer.")
             if value["media"] not in [m["id"] for m in self.printer.media(value["printer"])]:
                 raise ValueError("Select a supported 4 × 6 inch paper size.")
         with self.lock, self.db:
@@ -526,11 +532,14 @@ class BoothService:
                 if not status["selected"]:
                     raise RuntimeError("The selected printer is unavailable. Ask an attendant to check it.")
                 if status["selected"]["blocked"]:
-                    raise RuntimeError(status["selected"]["fault"] or "The printer status is unknown. Check the Mac queue.")
+                    raise RuntimeError(status["selected"]["fault"] or "The printer status is unknown. Check the print queue.")
                 if settings["media"] not in [item["id"] for item in status["media"]]:
                     raise RuntimeError("The selected paper size is unavailable. Check the admin printer settings.")
                 landscape = bool(re.search(r"6[xX]4|w432h288", settings["media"]))
-                job_id = self.printer.submit(settings["printer"], settings["media"], photo_pdf(jpeg, landscape=landscape))
+                if hasattr(self.printer, "submit_photo"):
+                    job_id = self.printer.submit_photo(settings["printer"], settings["media"], jpeg)
+                else:
+                    job_id = self.printer.submit(settings["printer"], settings["media"], photo_pdf(jpeg, landscape=landscape))
                 with self.lock, self.db:
                     self.db.execute("UPDATE jobs SET job_id=?, state='queued' WHERE id=?", (job_id, request_id))
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:

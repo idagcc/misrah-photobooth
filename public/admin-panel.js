@@ -12,20 +12,20 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
         <label>Camera & tracking<select id="admin-rate"><option value="30">4K camera · target 30 face updates/sec</option><option value="10">Standard camera · target 10 face updates/sec</option><option value="5">Standard camera · target 5 face updates/sec</option></select></label>
         <p class="admin-hint">4K mode requests 3840 × 2160 at 30 fps and retains full camera detail for the photograph. The camera may supply a lower mode. Face tracking uses a smaller image and GPU acceleration when available. Saved changes apply to the next capture.</p>
         <p id="admin-camera-performance" class="admin-device-status" role="status">Open the guest camera to measure its actual resolution and tracking speed.</p>
-        <div class="admin-divider"></div><label>Printing<select id="admin-print-mode"><option value="dialog">System print window</option><option value="native">Direct to selected Mac printer</option></select></label>
+        <div class="admin-divider"></div><label>Printing<select id="admin-print-mode"><option value="dialog">System print window</option><option value="native">Direct to selected printer</option></select></label>
         <div class="admin-fields"><label>Printer<select id="admin-printer"><option value="">Select a printer</option></select></label><button id="admin-refresh-printers" type="button" class="button secondary">Refresh printers</button></div>
         <label>Photo paper<select id="admin-media"><option value="">Select 4 × 6 inch paper</option></select></label>
-        <div id="admin-printer-status" class="admin-device-status" role="status">Checking the Mac print service…</div>
-        <p class="admin-hint">DNP DS-RX1HS: install the DNP driver and add the printer in macOS first. Paper-out and ribbon alerts appear if the driver reports them. Remaining sheets: unavailable. An idle queue does not confirm paper is loaded.</p>
+        <div id="admin-printer-status" class="admin-device-status" role="status">Checking the print service…</div>
+        <p class="admin-hint">DNP DS-RX1HS: install the DNP driver and add the printer in Windows or macOS first. Paper-out and ribbon alerts appear if the driver reports them. Remaining sheets: unavailable. An idle queue does not confirm paper is loaded.</p>
         <button class="button primary admin-save" type="submit">Save device settings</button>
       </form>
     </section>
     <section id="admin-portraits" class="admin-section" hidden>
-      <h3>Portrait library</h3><p class="admin-hint">Add vertical artwork with one clear, straight-facing person. Guests will place their face into this portrait. Names and artwork are saved on this Mac.</p>
+      <h3>Portrait library</h3><p class="admin-hint">Add vertical artwork with one clear, straight-facing person. Guests will place their face into this portrait. Names and artwork are saved on this computer.</p>
       <form id="admin-add-portrait"><label>Portrait name<input id="admin-portrait-name" maxlength="60" required placeholder="e.g. The dhow captain"></label><label>Portrait image<input id="admin-portrait-file" type="file" accept="image/jpeg,image/png,image/webp" required></label><p class="admin-hint">JPEG, PNG or WebP · at least 900 px tall · face looking straight ahead. Images are resized for the booth.</p><button id="admin-add-button" class="button primary" type="submit">Check & add portrait</button></form>
       <div id="admin-library" class="admin-library"></div>
     </section>
-    <section id="admin-usage" class="admin-section" hidden><div class="admin-section-heading"><h3>Usage on this Mac</h3><button id="admin-export" class="button secondary">Export CSV</button></div><p class="admin-hint">Totals persist across restarts. Template taps count as selections; retakes count as new captures. Simulated camera and sample links are excluded.</p><div id="admin-totals" class="admin-totals"></div><div class="admin-table-wrap"><table><caption>Usage by portrait</caption><thead><tr><th>Portrait</th><th>Selected</th><th>Captured</th><th>Print requests</th><th>Accepted</th><th>Queue completed</th><th>Print windows</th><th>Errors</th></tr></thead><tbody id="admin-usage-rows"></tbody></table></div><p class="admin-hint">Accepted = jobs accepted by the Mac queue. Queue completed = the spooler reported completion; physical output is not independently verified. System print windows may be cancelled, so they are counted separately.</p><h3>Recent print jobs</h3><div id="admin-jobs" class="admin-jobs"></div></section>
+    <section id="admin-usage" class="admin-section" hidden><div class="admin-section-heading"><h3>Usage on this computer</h3><button id="admin-export" class="button secondary">Export CSV</button></div><p class="admin-hint">Totals persist across restarts. Template taps count as selections; retakes count as new captures. Simulated camera and sample links are excluded.</p><div id="admin-totals" class="admin-totals"></div><div class="admin-table-wrap"><table><caption>Usage by portrait</caption><thead><tr><th>Portrait</th><th>Selected</th><th>Captured</th><th>Print requests</th><th>Accepted</th><th>Queue completed</th><th>Print windows</th><th>Errors</th></tr></thead><tbody id="admin-usage-rows"></tbody></table></div><p class="admin-hint">Accepted = jobs accepted by the print queue. Queue completed = the spooler reported completion; physical output is not independently verified. System print windows may be cancelled, so they are counted separately.</p><h3>Recent print jobs</h3><div id="admin-jobs" class="admin-jobs"></div></section>
     <section id="admin-storage" class="admin-section" hidden>
       <h3>Weekly photo archive</h3><p class="admin-hint">Every finished capture is saved as a high-quality JPEG, including retakes. Reprints use the same photo. Camera originals are not kept. Weeks run Monday–Sunday in Dubai time (UTC+4).</p>
       <form id="admin-archive-settings"><label class="admin-archive-toggle"><input id="admin-archive-enabled" type="checkbox" checked> Save finished portraits automatically</label><button type="submit" class="button primary admin-save">Save archive setting</button></form>
@@ -165,7 +165,7 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
   $('admin-settings').addEventListener('submit', event => {
     event.preventDefault(); run(async () => {
       await client.saveSettings({ ...client.config.settings, cameraId: $('admin-camera').value, rate: Number($('admin-rate').value), printMode: $('admin-print-mode').value, printer: $('admin-printer').value, media: $('admin-media').value });
-      feedback('Device settings saved on this Mac.');
+      feedback('Device settings saved on this computer.');
     });
   });
   $('admin-add-portrait').addEventListener('submit', event => {

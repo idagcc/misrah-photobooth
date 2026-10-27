@@ -1,10 +1,20 @@
-# Misrah Studio — local photobooth v0.7
+# Misrah Studio — local photobooth v0.10
 
 A clean, touch-first photobooth for an Apple-silicon Mac mini with 16 GB unified memory. Guests choose a straight-facing heritage portrait, look at the camera, and print a keepsake. Everything runs on the booth computer. This prototype uses geometric face insertion and local tone correction, rather than a cloud or neural identity-swap service.
 
+## Misrah branding
+
+Finished portraits include the supplied official Arabic/English Misrah logo at the top right and the Instagram icon with `MISRAH_AE` at the top left, following the supplied reference. No Nahj logo is included. The warm cream 4 × 6 layout preserves the entire source photograph without cropping. The result preview, saved copy, local photo archive and both printing routes use the same branding composition. Exports are at least 1200 × 1800 pixels; lower-resolution source photographs are fitted rather than given additional image detail. The supplied black logo is used without recolouring or distortion, with a visible width of at least 312 pixels and clear space.
+
+## Locked landscape screen
+
+The launcher opens `/landscape.html`: a fixed 1920 × 1080 (16:9) guest screen. It scales uniformly to the browser window and centres with dark borders when the display has another aspect ratio. Resizing never changes the guest layout or switches it into a mobile/portrait layout. Camera dialogs, processing, portrait choices and results all use the same fixed viewport. This locks the app layout rather than changing the operating system display settings. Prints remain 4 × 6 portrait. The original `/index.html` remains available for responsive diagnostics.
+
 ## Start
 
-Requires Python 3.9+ and a recent desktop Chrome or Edge browser. Double-click **Start Photobooth.command** on macOS, or run `python3 server.py`. Keep its window open. The address is normally <http://127.0.0.1:8765>. If the port is busy, use `python3 server.py --port 8766`.
+Requires a recent desktop Chrome or Edge browser. The Windows x64 release includes Python; the macOS package and source checkout require Python 3.9+. Double-click **Start Photobooth.command** on macOS, or run `python3 server.py`. Keep its window open. The address is normally <http://127.0.0.1:8765/landscape.html>. If the port is busy, use `python3 server.py --port 8766`.
+
+On Windows 10/11 x64, extract the complete Windows ZIP to a writable folder, then double-click **Start Photobooth.bat**. Do not run it from inside the ZIP. Keep the console open and use Chrome or Edge at the address shown. No Python or Node installation is required for the Windows release. For direct printing, install the manufacturer’s Windows printer driver, then choose **Direct to selected printer** in admin, select the printer and its reported 4 × 6 paper size, and save. The app submits one copy to the Windows spooler without opening a guest print dialog. Browser printing remains available. File-output printers such as Microsoft Print to PDF are excluded from direct printing. Windows ARM64 and 32-bit packages are not included.
 
 Camera access requires this local address; opening `index.html` directly will not work. The bundled model, runtime, artwork and lights clip work offline. No Node installation or additional Python packages are needed to operate the booth.
 
@@ -12,7 +22,7 @@ Camera access requires this local address; opening `index.html` directly will no
 
 **Touch to start → choose a portrait → lights → look straight ahead → automatic capture → print or retake.**
 
-Only the two frontal portraits are enabled initially: The basket weaver and The pearl trader. The welcome screen also uses a straight-facing portrait. Large cards start capture with one tap, without a second scene preview or exposed settings. A single camera view gives short, actionable guidance. Retake keeps the chosen portrait; Choose another portrait clears the photograph. Finish clears the photograph and print image for the next guest. After two idle minutes, the session clears, with a warning during the final 20 seconds. Processing, printing and the open admin panel suspend that timer.
+The three supplied final portraits are enabled initially: The basket weaver, The pearl diver and The sailor. The welcome screen uses the supplied basket-weaver artwork. The female portrait keeps the original gold face plate as foreground; only its two eye openings reveal the guest. The male portraits fill their complete oval face openings. Large cards start capture with one tap, without a second scene preview or exposed settings. A single camera view gives short, actionable guidance. Retake keeps the chosen portrait; Choose another portrait clears the photograph. Finish clears the photograph and print image for the next guest. After two idle minutes, the session clears, with a warning during the final 20 seconds. Processing, printing and the open admin panel suspend that timer.
 
 On the `experiment` branch, MediaPipe maps the guest's face live. A smoothed outline follows their face, eyes, nose and mouth; guests can stand off-centre as long as their whole face is visible and large enough for a clear photograph. After the lights, two clear, straight-facing observations start a visible **3 → 2 → 1** countdown. **The shutter fires when 1 appears**, two seconds after 3 starts. The counter sits in a corner so guests can see their face and make their pose. The captured moment remains visible briefly before processing.
 
@@ -20,7 +30,7 @@ The countdown runs on a fixed clock, without requiring a continuously steady pos
 
 **Take picture now** is available as soon as one complete, front-facing face is detected, even while light or focus advice is showing. It takes the measured current frame immediately. The booth crops that frame around the face and automatically positions, sizes and rotates it into the selected portrait using the eyes. The captured pixels and landmarks stay paired even when the next camera frame is being analysed. Outline smoothing and a brief guidance delay affect display only; they never supply stale landmarks to the shutter.
 
-The original generated scenes are synthetic alignment fixtures, not approved client artwork. Add approved frontal artwork through the admin panel before an event.
+The three final artworks have fixed, calibrated face/eye openings because their blank faces cannot be detected by a face model. Original supplied pixels remain unchanged outside those openings. The older generated scenes remain diagnostic fixtures in the preparation studio, and bundled test guests are synthetic. Additional admin imports still require a visible, detectable frontal face; new blank-face artwork needs its own opening calibration.
 
 ## Hidden admin panel
 
@@ -57,7 +67,7 @@ Print jobs go through macOS's local CUPS socket, with local TCP as a fallback. G
 
 On `experiment`, new installations default to **4K camera · target 30 face updates/sec**. This requests 3840 × 2160 at up to 30 fps, retains original-resolution camera pixels for the final face crop and analyses a 640 px copy. Existing saved 5/10 Hz choices are preserved; select 30 in the hidden admin panel to upgrade an existing installation. Standard modes request 1280 × 960 at up to 30 fps. The camera/browser can negotiate a lower mode; the operator readout shows what was actually supplied.
 
-The tracker uses a GPU-accelerated MediaPipe worker when supported, with a CPU/WASM fallback. Camera-frame callbacks follow newly delivered frames. Only one analysis request is in flight; a late worker processes the latest available frame next, with no image backlog. At most two native-resolution camera bitmaps are retained during analysis (about 66 MB of raw RGBA pixels at 3840 × 2160, excluding browser/model overhead), and are closed on replacement or stop. Full 4K pixels are cropped only at the shutter. Final portraits retain the artwork's full size (1024 × 1536 for the two bundled frontal scenes).
+The tracker uses a GPU-accelerated MediaPipe worker when supported, with a CPU/WASM fallback. Camera-frame callbacks follow newly delivered frames. Only one analysis request is in flight; a late worker processes the latest available frame next, with no image backlog. At most two native-resolution camera bitmaps are retained during analysis (about 66 MB of raw RGBA pixels at 3840 × 2160, excluding browser/model overhead), and are closed on replacement or stop. Full 4K pixels are cropped only at the shutter. The source compositor retains the artwork's full size (1122 × 1402 for the female artwork and 1024 × 1536 for each male artwork); the branded keepsake fits that complete image into a 1200 × 1800 or larger 4 × 6 layout.
 
 The guest screen skips the hidden live composite and its per-frame tone correction; final stills still receive tone correction. Full-size prepared template caching is capped at three, the library uses small thumbnails, test people and legacy templates are omitted from ordinary guest startup, and worker buffers are reused during live checks and released after still processing. Starting a new guest clears the active photo.
 
@@ -122,10 +132,20 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 For browser verification, start a disposable data directory with `python3 server.py --port 8767 --no-open --data-dir /tmp/misrah-qa`. With Playwright and Chrome available, run `PHOTOBOOTH_URL=http://127.0.0.1:8767 node scripts/verify-kiosk.mjs`, then `node scripts/verify-admin.mjs` with the same URL. `PLAYWRIGHT_PATH` can point to an existing Playwright `index.mjs` installation.
 
-The kiosk script covers the real local model, both frontal templates, lights, cancellation, automatic capture, retake, export, print layout, idle cleanup, mobile layout, denied camera and studio startup. The admin script checks shortcut access, saved settings, accepted frontal imports, rejection of blank/angled inputs, library persistence and visibility, deduplicated counts, CSV export, and native-print/error UI with a mock bridge. Python checks cover persistence, print deduplication under concurrency, paper/ribbon faults, timeouts, completion/cancellation accounting and temporary-photo handling. Hardware output is not mocked as a successful physical print.
+The branding check is `node scripts/verify-branding.mjs`; it validates all three approved portraits, foreground preservation including the gold plate, branded output, synthetic automatic capture, exports, print dimensions, reset clearing, mobile layout and logo failure handling.
+
+The kiosk script covers the real local model, all three approved templates, lights, cancellation, automatic capture, retake, export, print layout, idle cleanup, mobile layout, denied camera and studio startup. The admin script checks shortcut access, saved settings, accepted frontal imports, rejection of blank/angled inputs, library persistence and visibility, deduplicated counts, CSV export, and native-print/error UI with a mock bridge. Python checks cover persistence, print deduplication under concurrency, paper/ribbon faults, timeouts, completion/cancellation accounting and temporary-photo handling. Hardware output is not mocked as a successful physical print.
 
 The archive browser check is `node scripts/verify-archive.mjs` against the same disposable server; it saves only fictional QA fixtures.
 
 The dynamic mapping check is `node scripts/verify-face-mapping.mjs` (default port 8768, or set `PHOTOBOOTH_URL`). It uses the bundled model on four off-centre sample captures, both shutter paths, quality failures, tracking cleanup, and a delayed-inference shutter check. `node scripts/verify-quick-capture.mjs` checks the visible 3/2/1 sequence, shutter timing on 1, jitter/focus tolerance, stable guidance, cancellation and the manual override with controlled detector sequences. See `qa/experiment-verification.md` and `qa/quick-capture-verification.md` for results.
 
 See `IMPLEMENTATION.md`, `qa/v07-verification.md`, and `THIRD_PARTY_NOTICES.txt` for implementation details, verification evidence and model/runtime provenance.
+
+## Release packages
+
+Run `python3 scripts/build-release.py` to create macOS and Windows x64 ZIPs plus `SHA256SUMS.txt` in `dist/`. Windows bundles the official Python 3.14.10 embeddable runtime from python.org, checked against a pinned SHA-256 digest; its license is included in `runtime/LICENSE.txt`. macOS uses the installed Python. Both contain the current offline artwork, models, scripts and landscape screen. Local settings, guest photographs, development dependencies and QA files are excluded. `BUILD.json` records the source revision.
+
+The desktop packages workflow builds and verifies each package on its native operating system, including launching the embedded Windows Python from a folder containing spaces. For a local package smoke check, run `python3 scripts/verify-package.py dist/<package>.zip` on the matching operating system. Releases are attached as GitHub Release assets, outside source control.
+
+Windows direct printing uses the installed Windows PowerShell 5.1, .NET desktop printing APIs and GDI. Printer and paper choices come from the installed driver. Driver-reported paper, door, offline and queue errors block submission. The Windows spool job ID is recorded and request deduplication prevents resubmission; timeouts remain uncertain and are never retried automatically. Jobs disappearing from the queue remain unknown rather than being counted as completed. Driver support determines ribbon alerts; remaining media is not inferred. Physical printer output must be verified with the event printer.

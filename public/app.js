@@ -4,6 +4,8 @@ import { LiveCamera } from './live-camera.js';
 import { createGuestFlow } from './guest-flow.js';
 import { BoothClient } from './booth-client.js';
 import { createAdminPanel } from './admin-panel.js';
+import { brandReady, brandedPortrait } from './print-branding.js';
+import { APPROVED_PORTRAITS, prepareApprovedPortrait } from './approved-portraits.js';
 
 const $ = id => document.getElementById(id);
 const guestExperience = document.body.dataset.experience === 'guest';
@@ -11,6 +13,13 @@ let guestFlow;
 const booth = guestExperience ? new BoothClient() : null;
 let initialized = false;
 const portrait = $('portrait'), ctx = portrait.getContext('2d');
+let brandLogo;
+const brandingReady = brandReady.then(logo => { brandLogo = logo; });
+brandingReady.catch(() => {});
+function finishedPortrait() {
+  if (!brandLogo) throw new Error('The Misrah logo is not ready. Refresh before printing.');
+  return brandedPortrait(portrait, brandLogo, $('branded-portrait') || undefined);
+}
 const sourceCanvas = $('source-canvas'), sourceCtx = sourceCanvas.getContext('2d');
 const defaults = { scale: 100, x: 0, y: 0, rotation: 0, warmth: 30, brightness: 100, softness: 2, flip: false };
 const state = { settings: { ...defaults }, source: null, faces: [], selected: 0, frame: null,
@@ -80,12 +89,11 @@ let builtIn, reference;
 const clientFrames = new Map();
 const testGuests = new Map();
 let sceneDefinitions = [
-  { id: 'frontal-weaver', src: 'assets/frontal/frontal-weaver.png', name: 'Frontal weaver', generated: true },
-  { id: 'frontal-pearl-trader', src: 'assets/frontal/frontal-pearl-trader.png', name: 'Frontal pearl trader', generated: true },
+  ...Object.entries(APPROVED_PORTRAITS).map(([id, item]) => ({ id, src: item.src, name: item.name, approved: true })),
   { id: 'misrah-1', src: 'assets/misrah-1.png', name: 'The pearl trader' },
   { id: 'misrah-2', src: 'assets/misrah-2.png', name: 'The weaver' },
   { id: 'misrah-3', src: 'assets/misrah-3.png', name: 'The woven arch' }
-].filter(item => !guestExperience || item.generated);
+].filter(item => !guestExperience || item.approved);
 const guestDefinitions = [
   { id: 'frontal-guest-woman', name: 'Woman' },
   { id: 'frontal-guest-man', name: 'Man' },
@@ -117,7 +125,7 @@ async function makeBuiltIn() {
   state.frame = builtIn; setCanvasSize(); render();
 }
 
-const templateReady = (guestExperience ? Promise.resolve() : makeBuiltIn()).catch(error => { status(error.message, true); throw error; });
+const templateReady = Promise.all([brandingReady, guestExperience ? Promise.resolve() : makeBuiltIn()]).catch(error => { status(error.message, true); throw error; });
 templateReady.catch(() => {});
 const engineReady = (async () => {
   try {
@@ -147,7 +155,7 @@ const engineReady = (async () => {
 async function prepareClientScenes() {
   let prepared = 0;
   // Keep at most a few decoded full-size scenes; the library uses small thumbnails.
-  for (const definition of (guestExperience ? sceneDefinitions.slice(0, 2) : sceneDefinitions)) {
+  for (const definition of (guestExperience ? sceneDefinitions.slice(0, 3) : sceneDefinitions)) {
     try {
       await prepareScene(definition); $(definition.id).disabled = false; prepared++;
     } catch { $(definition.id).title = 'This portrait could not be prepared. Ask an attendant.'; }
@@ -164,7 +172,14 @@ async function prepareScene(definition) {
   if (clientFrames.has(definition.id)) {
     const cached = clientFrames.get(definition.id); clientFrames.delete(definition.id); clientFrames.set(definition.id, cached); return cached;
   }
-  const image = await imageFromURL(definition.src), result = await detect(image);
+  const image = await imageFromURL(definition.src);
+  const approved = prepareApprovedPortrait(definition, image, makeCanvas);
+  if (approved) {
+    clientFrames.set(definition.id, approved);
+    if (guestExperience) trimFrameCache(definition.id);
+    return approved;
+  }
+  const result = await detect(image);
   if (result.landmarks.length !== 1) throw new Error('The portrait must contain exactly one clear face.');
   const points = result.landmarks[0], w = image.width, h = image.height;
   const mask = makeCanvas(w, h), mctx = mask.getContext('2d'); mctx.fillStyle = 'white'; mctx.beginPath();
@@ -179,10 +194,16 @@ async function prepareScene(definition) {
   const frame = { id: definition.id, image, layer, mask, bounds: { ...target.bounds }, target, sample,
     pose, quality: { ...result.qualities[0], styleStrength: guestExperience || definition.generated ? .35 : .85 }, name: definition.name, generated: Boolean(definition.generated), custom: false };
   clientFrames.set(definition.id, frame);
-  if (guestExperience) {
-    while (clientFrames.size > 3) { const key = [...clientFrames.keys()].find(id => id !== state.frame?.id && id !== definition.id); if (!key) break; clientFrames.delete(key); }
-  }
+  if (guestExperience) trimFrameCache(definition.id);
   return frame;
+}
+
+function trimFrameCache(preparedId) {
+  while (clientFrames.size > 3) {
+    const key = [...clientFrames.keys()].find(id => id !== state.frame?.id && id !== preparedId);
+    if (!key) break;
+    clientFrames.delete(key);
+  }
 }
 
 async function syncGuestLibrary() {
@@ -353,7 +374,8 @@ function render() {
       const mctx = softenedMask.getContext('2d');
       // Keep the opening fully opaque in the matte, and feather outward into
       // the surrounding trim. Blurring inward would leave the blue key visible.
-      mctx.shadowColor = 'white'; mctx.shadowBlur = settings.softness * 2;
+      // Approved apertures are exact: broad feathering would erase the gold face plate.
+      mctx.shadowColor = 'white'; mctx.shadowBlur = frame.approved ? 0 : settings.softness * 2;
       mctx.drawImage(frame.mask, 0, 0);
       overlayLayer.width = w; overlayLayer.height = h;
       const octx = overlayLayer.getContext('2d'); octx.drawImage(frame.image, 0, 0);
@@ -378,6 +400,7 @@ function render() {
     ctx.save(); ctx.strokeStyle = '#eddb8a'; ctx.lineWidth = Math.max(2, w / 500); ctx.setLineDash([w / 100, w / 150]);
     const b = frame.bounds; ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.restore();
   }
+  if (guestExperience && source && brandLogo) finishedPortrait();
 }
 
 function syncSettings() {
@@ -445,7 +468,7 @@ async function setSource(image, label, measuredDetection = null) {
     guestPortraitReady = state.faces.length === 1;
     if (guestExperience && guestPortraitReady && !booth.simulated && booth.config.settings.archiveEnabled) {
       busy(true, 'Saving your portrait…'); setView('result');
-      try { await booth.archivePortrait(state.frame.id, portrait.toDataURL('image/jpeg', .94)); }
+      try { await booth.archivePortrait(state.frame.id, finishedPortrait().toDataURL('image/jpeg', .94)); }
       catch { archiveWarning = 'Your photo needs attention. Please ask an attendant before leaving.'; }
     }
     status(guestExperience ? archiveWarning : state.faces.length ? `${state.faces.length === 1 ? 'Face found' : `${state.faces.length} faces found; largest selected`} · ${result.elapsed} ms detection. Your portrait is ready to adjust or save.` : 'No face was found. Try a brighter, front-facing photo, or use size and position to fit it manually.', Boolean(archiveWarning) || !state.faces.length);
@@ -541,7 +564,7 @@ $('download').addEventListener('click', () => {
   if (!state.source) return;
   const view = state.view, guide = $('edit-opening').checked; state.view = 'result'; $('edit-opening').checked = false; render();
   const format = $('export-format').value, extension = format === 'image/png' ? 'png' : 'jpg';
-  portrait.toBlob(blob => {
+  finishedPortrait().toBlob(blob => {
     if (!blob) { status('Your portrait could not be exported. Please try again.', true); return; }
     const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url;
     link.download = `misrah-portrait-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`;
@@ -620,7 +643,7 @@ const liveCamera = new LiveCamera({ detect, ready: liveReady, getFrame: () => st
   capture: setSource, getSample: async () => {
     await liveReady;
     const guest = testGuests.get($('sample-person').value);
-    return guest?.sample || state.frame.sample || builtIn.sample;
+    return guest?.sample || state.frame.sample || testGuests.values().next().value?.sample || builtIn?.sample;
   } });
 $('sample-person').addEventListener('change', () => { if ($('camera-dialog').open) liveCamera.open({ sample: true }); });
 if (!guestExperience) $('open-camera').addEventListener('click', () => liveCamera.open());
@@ -630,6 +653,8 @@ async function resetSession(destination = 'choose') {
   const previousFrame = state.frame, previousId = state.frame?.id || $('scene-list').querySelector('.selected')?.id;
   state.generation++; state.toneGeneration++; liveCamera.close(); busy(false); state.source = null; state.rawSource = null; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults };
   faceLayer.getContext('2d').clearRect(0, 0, faceLayer.width, faceLayer.height);
+  const finished = $('branded-portrait');
+  if (finished) finished.getContext('2d').clearRect(0, 0, finished.width, finished.height);
   $('source-empty').hidden = false; sourceCanvas.hidden = true; sourceCtx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height); $('source-tag').hidden = true; $('faces-section').hidden = true; $('face-list').replaceChildren();
   $('photo-upload').value = ''; $('frame-upload').value = ''; controlsEnabled(false); syncSettings();
   if (guestExperience && !previousFrame) { guestStep(destination); return; }
@@ -639,7 +664,7 @@ async function resetSession(destination = 'choose') {
 }
 if (guestExperience) guestFlow = createGuestFlow({ camera: liveCamera, clear: resetSession,
   client: booth, getTemplate: () => state.frame.id,
-  printImage: () => { render(); return portrait.toDataURL('image/jpeg', .98); }, hasPhoto: () => Boolean(state.source && state.faces.length === 1 && !$('print-photo').disabled) });
+  printImage: () => { render(); return finishedPortrait().toDataURL('image/jpeg', .98); }, hasPhoto: () => Boolean(state.source && state.faces.length === 1 && !$('print-photo').disabled) });
 else $('new-session').addEventListener('click', () => resetSession());
 if (guestExperience) {
   createAdminPanel({ client: booth, syncLibrary: syncGuestLibrary, pause: () => liveCamera.close(),

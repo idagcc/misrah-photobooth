@@ -25,3 +25,7 @@ Generation tool on 19 October 2026. They depict fictional adults and new test
 scenes, not client-approved artwork. Exact prompts and paths are recorded in
 qa/frontal-generation-prompts.json. No model weights are needed to use these
 static test assets in the offline app.
+
+Windows release runtime: CPython 3.14.10, Python Software Foundation.
+Official distribution: https://www.python.org/ftp/python/3.14.10/python-3.14.10-embed-amd64.zip
+The Windows package includes the Python license at runtime/LICENSE.txt.

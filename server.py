@@ -24,7 +24,7 @@ class LocalHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "
                          "style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; "
                          "worker-src 'self'; media-src 'self' blob:; font-src 'self'; "
-                         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'")
+                         "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'none'")
         self.send_header("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -150,7 +150,7 @@ def main():
         server.api_token = secrets.token_urlsafe(32)
     except OSError as error:
         parser.exit(1, f"Could not open port {args.port}: {error}\nTry: python3 server.py --port 8766\n")
-    url = f"http://127.0.0.1:{server.server_port}"
+    url = f"http://127.0.0.1:{server.server_port}/landscape.html"
     print(f"\nMisrah Studio is ready: {url}\n", flush=True)
     print("Keep this window open while using the photobooth. Press Ctrl+C to stop.\n", flush=True)
     if not args.no_open:

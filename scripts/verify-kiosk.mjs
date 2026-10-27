@@ -34,7 +34,7 @@ try {
   assert.equal(await page.locator('body').getAttribute('data-step'), 'welcome');
   await shot('welcome');
   await page.locator('#touch-start').click();
-  assert.equal(await page.locator('#scene-list .frame-card:enabled').count(), 2);
+  assert.equal(await page.locator('#scene-list .frame-card:enabled').count(), 3);
   await shot('templates');
   // Cancelling while camera acquisition and the light clip overlap must not capture later.
   await page.locator('#frontal-weaver').click();
@@ -80,7 +80,7 @@ try {
   await waitStep('result');
   await page.locator('#choose-another').click();
   await waitStep('choose');
-  // Exercise both frontal portraits through the real model/compositor.
+  // Exercise all three approved portraits through the real model/compositor.
   // Scene references are explicit internal fixtures, never represented as real guests.
   await page.evaluate(() => { document.getElementById('sample-person').value = 'reference'; });
   const ids = await page.locator('#scene-list .frame-card').evaluateAll(items => items.map(item => item.id));

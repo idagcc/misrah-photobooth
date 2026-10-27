@@ -13,10 +13,10 @@
   <script type="module" src="app.js"></script>
 </head>
 <body data-experience="guest" data-step="welcome">
-  <header class="guest-header"><a class="guest-brand" href="./" aria-label="Misrah home"><span aria-hidden="true">✧</span> MISRAH <b>STUDIO</b></a><nav class="guest-progress" aria-label="Photo experience"><span data-progress="choose">01 <b>Choose</b></span><i></i><span data-progress="camera">02 <b>Capture</b></span><i></i><span data-progress="result">03 <b>Print</b></span></nav></header>
+  <header class="guest-header"><a class="guest-brand" href="./" aria-label="Misrah home"><img class="official-brand" src="assets/brand/misrah-logo.png" alt="Misrah"></a><nav class="guest-progress" aria-label="Photo experience"><span data-progress="choose">01 <b>Choose</b></span><i></i><span data-progress="camera">02 <b>Capture</b></span><i></i><span data-progress="result">03 <b>Print</b></span></nav></header>
   <section id="welcome-step" class="welcome-screen" aria-labelledby="welcome-title">
     <div class="welcome-copy"><p class="eyebrow">THE MISRAH PHOTO EXPERIENCE</p><h1 id="welcome-title" tabindex="-1">Your face.<br>A timeless story.</h1><p class="welcome-description">Choose a portrait. Look at the camera.<br>Take home a little piece of history.</p><button id="touch-start" class="button primary" disabled>Touch to start <span aria-hidden="true">→</span></button><p id="welcome-status" role="status">Preparing your experience…</p><div class="welcome-how"><span>1 &nbsp; Choose</span><span>2 &nbsp; Capture</span><span>3 &nbsp; Print</span></div></div>
-    <div class="welcome-gallery" aria-hidden="true"><figure class="welcome-photo"><img src="assets/frontal/frontal-weaver.png" alt=""><figcaption>The heritage collection <em>Misrah</em></figcaption></figure></div>
+    <div class="welcome-gallery" aria-hidden="true"><figure class="welcome-photo"><img src="assets/approved/basket-weaver.png" alt=""><figcaption>The heritage collection <em>Misrah</em></figcaption></figure></div>
     <p class="welcome-footer">YOUR PORTRAIT. YOUR KEEPSAKE. <span>Private, and made right here.</span></p>
   </section>
   <main class="guest-main" hidden>
@@ -24,7 +24,7 @@
     <div class="guest-workspace">
       <section class="guest-photograph" aria-label="Your portrait">
         <figure class="photo-print">
-          <div id="stage" class="guest-stage"><canvas id="portrait" width="1024" height="1536" role="img" aria-label="Selected heritage scene"></canvas><div id="stage-empty" hidden></div><div id="busy" class="busy" hidden><span class="spinner"></span><span id="busy-label">Preparing your portrait…</span></div></div>
+          <div id="stage" class="guest-stage"><canvas id="portrait" width="1024" height="1536" role="img" aria-label="Selected heritage scene"></canvas><canvas id="branded-portrait" width="1200" height="1800" role="img" aria-label="Your finished portrait with Misrah logo and Instagram MISRAH_AE"></canvas><div id="stage-empty" hidden></div><div id="busy" class="busy" hidden><span class="spinner"></span><span id="busy-label">Preparing your portrait…</span></div></div>
           <figcaption><span id="photo-caption">The basket weaver</span><span class="print-signature">Misrah</span></figcaption>
         </figure>
         <p id="photo-context" class="photo-context">SCENE PREVIEW</p>
@@ -33,8 +33,9 @@
         <div id="choose-step">
           <p class="step-label">01 — CHOOSE A PORTRAIT</p><h2>Choose a portrait.</h2><p class="scene-intro">Straight-facing portraits, made for you.</p>
 <div id="scene-list" class="scene-list">
-          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/frontal/frontal-weaver.png" alt="Straight-facing basket weaver portrait"><span><strong>The basket weaver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
-          <button id="frontal-pearl-trader" class="frame-card" disabled><img src="assets/frontal/frontal-pearl-trader.png" alt="Straight-facing pearl trader portrait"><span><strong>The pearl trader</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
+          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/approved/basket-weaver.png" alt="Basket weaver with traditional gold face plate"><span><strong>The basket weaver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
+          <button id="frontal-pearl-trader" class="frame-card" disabled><img src="assets/approved/pearl-diver.png" alt="Pearl diver with face opening"><span><strong>The pearl diver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
+          <button id="misrah-sailor" class="frame-card" disabled><img src="assets/approved/sailor.png" alt="Sailor with face opening"><span><strong>The sailor</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
         </div>
           <button id="open-camera" class="button primary guest-camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></svg>Use selected template<span aria-hidden="true">↗</span></button>
           <p class="camera-note">Your photo is taken automatically. Just look straight ahead.</p>

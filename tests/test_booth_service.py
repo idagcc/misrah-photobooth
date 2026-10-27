@@ -75,6 +75,7 @@ class BoothTests(unittest.TestCase):
         self.assertIn('-thumb.jpg', added['thumbnail'])
         self.service.set_active(added['id'], False)
         self.service.set_active('frontal-weaver', False)
+        self.service.set_active('misrah-sailor', False)
         with self.assertRaisesRegex(ValueError, 'at least one'):
             self.service.set_active('frontal-pearl-trader', False)
 
