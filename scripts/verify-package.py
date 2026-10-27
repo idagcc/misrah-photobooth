@@ -20,7 +20,7 @@ def main():
         root = next(Path(temp).iterdir())
         python = root / "runtime" / "python.exe" if sys.platform == "win32" else Path(sys.executable)
         if sys.platform == "win32":
-            subprocess.run([str(python), "-c", "from windows_printer import WindowsPrinter; assert WindowsPrinter().request('check') is True; print('PASS Windows native print bridge compiles')"], cwd=root, check=True)
+            subprocess.run([str(python), "-c", "from windows_printer import WindowsPrinter; assert WindowsPrinter().request('check') is True; from desktop_launch import find_windows_browser; assert find_windows_browser(), 'Edge or Chrome must be discoverable on the Windows runner'; print('PASS Windows native print bridge compiles and full-screen browser is discoverable')"], cwd=root, check=True)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]

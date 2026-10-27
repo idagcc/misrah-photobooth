@@ -31,7 +31,7 @@ def main():
             name = f"misrah-photobooth-v{version}-{platform}" + ("-x64" if platform == "windows" else "")
             stage = temp / name
             stage.mkdir()
-            for file in ["server.py", "booth_service.py", "windows_printer.py", "windows-print.ps1", "README.md", "IMPLEMENTATION.md", "THIRD_PARTY_NOTICES.txt"]:
+            for file in ["server.py", "desktop_launch.py", "booth_service.py", "windows_printer.py", "windows-print.ps1", "README.md", "IMPLEMENTATION.md", "THIRD_PARTY_NOTICES.txt"]:
                 shutil.copy2(ROOT / file, stage / file)
             shutil.copytree(ROOT / "public", stage / "public", ignore=shutil.ignore_patterns(".DS_Store", "__pycache__"))
             launcher = "Start Photobooth.bat" if platform == "windows" else "Start Photobooth.command"

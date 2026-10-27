@@ -26,3 +26,63 @@ body[data-step=result] #branded-portrait{display:block}
 @media(max-width:600px){#branded-portrait{max-height:36dvh}.guest-brand .official-brand{width:125px;height:50px}}
 /* Keep all three final portraits visible together on the booth screen. */
 @media(min-width:601px){body[data-step=choose] .guest-workspace{max-width:1020px}body[data-step=choose] .scene-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Give the landscape booth the full display, with larger touch targets and artwork. */
+@media screen and (min-width:1000px) {
+  .guest-header{height:88px;max-width:none;margin:0 4.5%;padding:0}
+  .guest-brand .official-brand{width:180px;height:70px}
+  .guest-progress{font-size:16px;gap:24px}
+  .welcome-screen{max-width:none;min-height:calc(100dvh - 88px);padding:28px 6% 24px;grid-template-columns:1.15fr 1fr;grid-template-rows:1fr auto;gap:22px 5vw}
+  .welcome-copy .eyebrow{font-size:14px;letter-spacing:2.5px;margin-bottom:26px}
+  .welcome-copy h1{font-size:clamp(76px,6.2vw,120px);letter-spacing:-3.5px}
+  .welcome-description{font-size:22px;line-height:1.7;margin:30px 0 34px}
+  .welcome-copy .button{width:430px;height:80px;font-size:23px;padding:0 30px}
+  .welcome-copy #welcome-status{font-size:15px;margin:16px 0 32px}
+  .welcome-how{gap:34px;font-size:16px}
+  .welcome-photo{width:min(31vw,540px);padding:14px 14px 0}
+  .welcome-photo img{max-height:72dvh}
+  .welcome-photo figcaption{height:60px;font-size:14px}
+  .welcome-photo em{font-size:28px}
+  .welcome-footer{margin:0;font-size:12px;padding-top:18px}
+  .welcome-footer span{font-size:14px}
+  .guest-main{max-width:none;padding:24px 4.5% 20px}
+  .guest-intro{margin-bottom:24px}
+  .guest-intro .eyebrow{font-size:12px;margin-bottom:10px}
+  .guest-intro h1{font-size:58px}
+  .guest-intro>p:last-child{font-size:18px;margin-top:10px}
+  body[data-step=choose] .guest-workspace{max-width:1560px}
+  .guest-actions .scene-list{gap:32px}
+  .guest-actions .frame-card{padding:12px}
+  .guest-actions .frame-card img{height:min(59dvh,640px);max-height:none;aspect-ratio:auto}
+  .guest-actions .frame-card>span:not(.check){padding:18px 12px 12px}
+  .guest-actions .frame-card strong{font-size:24px}
+  .guest-actions .frame-card small{font-size:15px;margin-top:7px}
+  .camera-note{font-size:16px;margin-top:20px}
+  .guest-privacy{font-size:14px;margin-top:20px}
+  .guest-footer{font-size:11px;margin-top:24px;padding-top:16px}
+  body[data-step=result] .guest-workspace{max-width:1440px;grid-template-columns:minmax(0,1fr) 480px;gap:80px}
+  body[data-step=choose] .guest-privacy,body[data-step=choose] .guest-footer{display:none}
+  body[data-step=choose] .camera-note{margin-top:14px}
+  body[data-step=choose] .guest-workspace:has(.guest-status.error) .frame-card img{height:52dvh}
+  body[data-step=result] .guest-intro .eyebrow{display:none}
+  body[data-step=result] .guest-intro h1{font-size:48px}
+  body[data-step=result] .guest-intro>p:last-child{font-size:16px}
+  #branded-portrait{max-height:calc(100dvh - 390px)}
+  .photo-print figcaption{height:52px;font-size:14px}
+  .photo-context{font-size:12px;margin-top:12px}
+  .guest-actions h2{font-size:48px}
+  .step-label{font-size:13px}
+  .result-intro{font-size:21px;margin:20px 0 30px}
+  .guest-actions .button{height:72px;font-size:21px}
+  #print-photo{padding:0 24px}
+  #print-photo svg{width:28px;height:28px}
+  .result-links button{font-size:16px;min-height:60px}
+  .finish-button{font-size:19px;min-height:68px}
+  .print-note{font-size:15px}
+  body[data-experience=guest] #camera-dialog{width:1060px;padding:30px}
+  body[data-experience=guest] .dialog-heading h2{font-size:40px}
+  body[data-experience=guest] .camera-stage,body[data-experience=guest] .camera-stage video{max-height:54dvh}
+  body[data-step=lights] #camera-dialog{min-height:690px}
+  .lights-copy h2{font-size:64px}
+  #processing-dialog{width:1000px;height:600px}
+}

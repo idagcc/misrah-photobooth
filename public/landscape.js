@@ -1,3 +1,4 @@
+import { isAdminShortcut } from './operator-shortcut.js';
 // Keep the guest document's viewport fixed, including its dialogs and viewport-based sizing.
 // Scale only its outer surface, so narrower windows never trigger a portrait/mobile reflow.
 const screen = document.getElementById('booth-screen');
@@ -11,3 +12,11 @@ screen.addEventListener('load', () => screen.contentWindow.focus());
 fit();
 // Preserve explicit sample/testing options, without changing the fixed display resolution.
 screen.src = `index.html${window.location.search}`;
+
+// The shortcut also works when keyboard focus is on the outer booth surface.
+document.addEventListener('keydown', event => {
+  if (isAdminShortcut(event)) {
+    event.preventDefault();
+    screen.contentDocument?.dispatchEvent(new CustomEvent('booth-admin-toggle'));
+  }
+});

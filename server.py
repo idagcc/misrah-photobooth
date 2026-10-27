@@ -9,7 +9,7 @@ import re
 import secrets
 import threading
 from urllib.parse import parse_qs, urlsplit
-import webbrowser
+from desktop_launch import open_booth
 from booth_service import BoothService
 
 PUBLIC = Path(__file__).resolve().parent / "public"
@@ -137,6 +137,7 @@ def main():
     parser = argparse.ArgumentParser(description="Start the private local photobooth")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-open", action="store_true")
+    parser.add_argument("--windowed", action="store_true", help="Open a normal browser window instead of Windows full screen")
     parser.add_argument("--data-dir", type=Path, default=Path(__file__).resolve().parent / ".local-data")
     parser.add_argument("--photos-dir", type=Path, help="Weekly photo folder; default: photos/ beside this app")
     args = parser.parse_args()
@@ -153,8 +154,9 @@ def main():
     url = f"http://127.0.0.1:{server.server_port}/landscape.html"
     print(f"\nMisrah Studio is ready: {url}\n", flush=True)
     print("Keep this window open while using the photobooth. Press Ctrl+C to stop.\n", flush=True)
+    print("Admin panel: F2 or Ctrl+Alt+Shift+A. Close admin: Esc. Close Windows full screen: Alt+F4.\n", flush=True)
     if not args.no_open:
-        threading.Timer(.5, lambda: webbrowser.open(url)).start()
+        threading.Timer(.5, lambda: open_booth(url, args.data_dir, windowed=args.windowed)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

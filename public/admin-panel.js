@@ -1,3 +1,4 @@
+import { isAdminShortcut } from './operator-shortcut.js';
 const $ = id => document.getElementById(id);
 const element = (tag, text, className) => Object.assign(document.createElement(tag), { textContent: text, ...(className ? { className } : {}) });
 
@@ -35,7 +36,7 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
       <p id="admin-storage-estimate" class="admin-hint"></p><p class="admin-hint">Plan for about 15–30 GB for 30,000 JPEGs using the included portraits. Keep 50 GB free for larger artwork and retakes, plus space for a separate backup. New artwork can produce larger files.</p>
       <div class="admin-table-wrap"><table><caption>Saved photos by week</caption><thead><tr><th>Folder</th><th>Photos</th><th>Storage</th></tr></thead><tbody id="admin-week-rows"></tbody></table></div>
     </section>
-    <p id="admin-feedback" class="admin-feedback" role="status" aria-live="polite"></p><p class="admin-shortcut">Close with Esc or ⌘⌥⇧A · Ctrl+Alt+Shift+A also works</p>`;
+    <p id="admin-feedback" class="admin-feedback" role="status" aria-live="polite"></p><p class="admin-shortcut">Admin: F2 or Ctrl+Alt+Shift+A · Close: Esc</p>`;
   document.body.append(dialog);
   document.addEventListener('booth-camera-performance', ({ detail: m }) => {
     const cameraFps = m.cameraFps === null ? 'measuring' : `${m.cameraFps.toFixed(1)} fps`;
@@ -144,10 +145,11 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
     if (activeTab === 'storage') await storage();
   }
   document.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === 'KeyA') {
+    if (isAdminShortcut(event)) {
       event.preventDefault(); if (!busy) run(open);
     }
   });
+  document.addEventListener('booth-admin-toggle', () => { if (!busy) run(open); });
   $('admin-close').addEventListener('click', () => { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
   dialog.addEventListener('close', () => document.dispatchEvent(new CustomEvent('booth-admin-closed')));
