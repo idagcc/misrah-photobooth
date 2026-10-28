@@ -27,7 +27,7 @@ BUILTINS = [
 ]
 RETIRED_BUILTINS = ("frontal-pearl-trader", "misrah-sailor")
 
-DEFAULTS = {"cameraId": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True}
+DEFAULTS = {"cameraId": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True, "portraitZoom": {}}
 EVENT_TIMEZONE = timezone(timedelta(hours=4), "Asia/Dubai")
 MIN_ARCHIVE_FREE = 1024 ** 3
 
@@ -321,6 +321,13 @@ class BoothService:
     def save_settings(self, value):
         if not isinstance(value, dict) or set(value) != set(DEFAULTS):
             raise ValueError("The device settings are incomplete.")
+        zooms = value["portraitZoom"]
+        if not isinstance(zooms, dict) or len(zooms) > 50:
+            raise ValueError("Choose a face size for an available portrait.")
+        for template, zoom in zooms.items():
+            if not isinstance(template, str) or type(zoom) is not int or not 75 <= zoom <= 115:
+                raise ValueError("Face size must be a whole percentage between 75 and 115.")
+            self.template(template)
         if value["rate"] not in (5, 10, 30) or type(value["rate"]) is not int or value["printMode"] not in ("dialog", "native"):
             raise ValueError("Choose a supported performance and printing mode.")
         if type(value["archiveEnabled"]) is not bool:

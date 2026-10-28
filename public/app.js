@@ -7,11 +7,14 @@ import { createAdminPanel } from './admin-panel.js';
 import { brandReady, brandedPortrait } from './print-branding.js';
 import { APPROVED_PORTRAITS, prepareApprovedPortrait } from './approved-portraits.js';
 import { applyPhotoGrain } from './photo-grain.js';
+import { portraitZoom, withPortraitZoom } from './face-fit.js';
+import { createWelcomeGallery } from './welcome-gallery.js';
 
 const $ = id => document.getElementById(id);
 const guestExperience = document.body.dataset.experience === 'guest';
 let guestFlow;
 const booth = guestExperience ? new BoothClient() : null;
+const welcomeGallery = guestExperience ? createWelcomeGallery() : null;
 let initialized = false;
 const portrait = $('portrait'), ctx = portrait.getContext('2d');
 let brandLogo;
@@ -24,7 +27,7 @@ function finishedPortrait() {
 const sourceCanvas = $('source-canvas'), sourceCtx = sourceCanvas.getContext('2d');
 const defaults = { scale: 100, x: 0, y: 0, rotation: 0, warmth: 30, brightness: 100, softness: 2, flip: false };
 const state = { settings: { ...defaults }, source: null, faces: [], selected: 0, frame: null,
-  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [], landmarks: [] };
+  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [], landmarks: [], captureZoom: null };
 // Opt-in while evaluating the still-photo experiment; ordinary booth links keep the committed capture flow.
 if (new URLSearchParams(location.search).get('pose') === 'correct') $('pose-correction').checked = true;
 const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
@@ -209,6 +212,7 @@ function trimFrameCache(preparedId) {
 
 async function syncGuestLibrary() {
   if (!guestExperience) return;
+  welcomeGallery.update(booth.config.templates);
   sceneDefinitions = booth.config.templates.filter(item => item.active).map(item => ({ ...item, generated: true }));
   $('scene-list').replaceChildren(...sceneDefinitions.map((item, index) => {
     const button = document.createElement('button'); button.id = item.id; button.className = 'frame-card'; button.disabled = !initialized;
@@ -361,7 +365,7 @@ function render() {
   ctx.drawImage(frame.layer, 0, 0);
   if (source && state.view === 'result') {
     const geometry = state.faces[state.selected] || manualGeometry(source.width, source.height);
-    const transform = alignment(geometry, frame.target, settings);
+    const transform = alignment(geometry, frame.target, withPortraitZoom(settings, state.captureZoom ?? portraitZoom(booth?.config?.settings, frame.id)));
     if (faceLayer.width !== w || faceLayer.height !== h) { faceLayer.width = w; faceLayer.height = h; }
     const fctx = faceLayer.getContext('2d'); fctx.clearRect(0, 0, w, h);
     fctx.save(); fctx.translate(transform.x, transform.y); fctx.rotate(transform.angle);
@@ -444,6 +448,8 @@ function faceButtons() {
 }
 async function setSource(image, label, measuredDetection = null) {
   const generation = ++state.generation;
+  // Freeze the selected fit for this photograph, including its archive and print.
+  state.captureZoom = portraitZoom(booth?.config?.settings, state.frame?.id);
   state.source = image; state.rawSource = image; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults }; state.toneGeneration++;
   if (state.frame?.quality?.styleStrength) { state.settings.warmth = 0; state.settings.softness = 6; }
   $('source-empty').hidden = true; sourceCanvas.hidden = false; $('source-tag').hidden = false; $('source-tag').textContent = label;
@@ -638,6 +644,58 @@ $('heritage-frame')?.addEventListener('click', async () => {
   await templateReady; selectScene(builtIn, 'heritage-frame'); status(guestExperience ? '' : 'The artisan scene selected.'); if (guestExperience) guestFlow?.start();
 });
 
+const fitSamples = new Map();
+async function previewFaceFit({ id, zoom, sample }) {
+  await liveReady;
+  const definition = booth.config.templates.find(item => item.id === id);
+  if (!definition) throw new Error('Choose an available portrait.');
+  const frame = await prepareScene(definition);
+  let image, geometry, settings, label;
+  if (sample === 'current' && state.source && state.frame.id === id && state.faces.length) {
+    image = state.source; geometry = state.faces[state.selected]; settings = { ...state.settings };
+    label = 'Current photo · Preview only';
+  } else {
+    if (!['woman', 'man', 'bearded'].includes(sample)) throw new Error('Choose a sample for this portrait.');
+    const key = `${id}:${sample}`;
+    if (!fitSamples.has(key)) {
+      const pending = (async () => {
+        const original = await imageFromURL(`./assets/frontal/frontal-guest-${sample}.png`);
+        const detected = await detect(original);
+        if (detected.landmarks.length !== 1) throw new Error('This sample could not be prepared.');
+        const geometry = faceGeometry(detected.landmarks[0], original.width, original.height);
+        const correction = correctionFor(detected.qualities[0], frame.quality);
+        const result = await requestWorker({ type: 'correct', correction }, await createImageBitmap(original));
+        try {
+          const image = makeCanvas(original.width, original.height); image.getContext('2d').drawImage(result.corrected, 0, 0);
+          return { image, geometry };
+        } finally { result.corrected.close(); }
+      })();
+      fitSamples.set(key, pending);
+      pending.catch(() => { if (fitSamples.get(key) === pending) fitSamples.delete(key); });
+      while (fitSamples.size > 3) fitSamples.delete(fitSamples.keys().next().value);
+    }
+    ({ image, geometry } = await fitSamples.get(key));
+    settings = { ...defaults, warmth: frame.quality?.styleStrength ? 0 : 30 };
+    label = `Synthetic sample · ${sample === 'bearded' ? 'Man with a beard' : sample === 'woman' ? 'Woman' : 'Man'}`;
+  }
+  // Show a head-and-shoulders detail without allocating another full-size portrait.
+  const b = frame.bounds, viewWidth = Math.max((b.right - b.left) * 2, frame.image.width * .4), viewHeight = viewWidth * 1.2;
+  const left = clamp(frame.target.anchor.x - viewWidth / 2, 0, Math.max(0, frame.image.width - viewWidth));
+  const top = clamp(frame.target.anchor.y - viewHeight * .38, 0, Math.max(0, frame.image.height - viewHeight));
+  const canvas = makeCanvas(560, 672), c = canvas.getContext('2d'), scale = canvas.width / viewWidth;
+  c.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
+  const t = alignment(geometry, frame.target, withPortraitZoom(settings, zoom));
+  c.save(); c.translate(t.x, t.y); c.rotate(t.angle);
+  c.scale(t.scale * (settings.flip ? -1 : 1), t.scale); c.translate(-geometry.anchor.x, -geometry.anchor.y);
+  c.filter = `sepia(${settings.warmth * .6}%) saturate(${100 - settings.warmth * .25}%) brightness(${settings.brightness}%)`;
+  c.drawImage(image, 0, 0); c.restore();
+  c.globalCompositeOperation = 'destination-in'; c.drawImage(frame.mask, 0, 0);
+  c.globalCompositeOperation = 'source-over'; c.drawImage(frame.layer, 0, 0);
+  c.globalCompositeOperation = 'destination-over'; c.fillStyle = '#f3eddf'; c.fillRect(0, 0, frame.image.width, frame.image.height);
+  c.globalCompositeOperation = 'source-over'; c.resetTransform(); applyPhotoGrain(c, canvas.width, canvas.height);
+  return { canvas, label };
+}
+
 // Live capture owns the stream, cancellation, pacing, quality gates and preview.
 const liveReady = engineReady.then(() => { if (engineFailed) throw new Error('The local detector is unavailable. Refresh to retry.'); });
 liveReady.catch(() => {});
@@ -656,6 +714,7 @@ $('live-correction').addEventListener('change', () => { $('auto-tone').checked =
 
 async function resetSession(destination = 'choose') {
   const previousFrame = state.frame, previousId = state.frame?.id || $('scene-list').querySelector('.selected')?.id;
+  state.captureZoom = null;
   state.generation++; state.toneGeneration++; liveCamera.close(); busy(false); state.source = null; state.rawSource = null; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults };
   faceLayer.getContext('2d').clearRect(0, 0, faceLayer.width, faceLayer.height);
   const finished = $('branded-portrait');
@@ -673,6 +732,7 @@ if (guestExperience) guestFlow = createGuestFlow({ camera: liveCamera, clear: re
 else $('new-session').addEventListener('click', () => resetSession());
 if (guestExperience) {
   createAdminPanel({ client: booth, syncLibrary: syncGuestLibrary, pause: () => liveCamera.close(),
+    currentPortrait: () => ({ id: state.frame?.id, hasPhoto: Boolean(state.source && state.faces.length) }), previewFaceFit,
     addPortrait: async (file, name) => {
       await liveReady;
       const original = await uploadedImage(file);

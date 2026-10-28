@@ -47,7 +47,7 @@ def main():
                     header = response.read()[:24]
                     assert header[:8] == b'\x89PNG\r\n\x1a\n'
                     assert (int.from_bytes(header[16:20], 'big'), int.from_bytes(header[20:24], 'big')) == dimensions
-            for asset in ["landscape.html", "index.html", "landscape.js", "approved-portraits.js", "models/face_landmarker.task"]:
+            for asset in ["landscape.html", "index.html", "landscape.js", "approved-portraits.js", "face-fit.js", "welcome-gallery.js", "models/face_landmarker.task"]:
                 with urllib.request.urlopen(base + "/" + asset, timeout=5) as response:
                     assert response.status == 200 and response.read()
             with urllib.request.urlopen(base + "/api/status", timeout=10) as response:

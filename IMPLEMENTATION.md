@@ -1,4 +1,4 @@
-# Misrah Studio implementation — v0.12
+# Misrah Studio implementation — v0.13
 
 ## Guest and operator boundaries
 
@@ -125,3 +125,15 @@ Current built-ins are `frontal-weaver` (new palm-weaver artwork) and `misrah-fal
 `createGuestFlow.processing` opens the animated modal and returns a minimum-three-second promise. `setSource` starts that promise alongside detection, tone matching and saving, then awaits it before any result/error reveal. A slow operation keeps the modal open after the countdown. Reduced-motion mode retains the delay and readable copy without rotation. Browser verification covers both uploaded fixtures and the actual automatic synthetic-camera capture path, exact calibrated foreground plus grain, both eye apertures, exports, browser printing, five landscape viewports and reset.
 
 The Windows bridge compiles one C# `IsPhotoPaper` predicate used by both media listing and submission. DNP is identified by the installed driver name, including queues renamed by an operator. Its bleed area (615 × 413 hundredths of an inch) failed the previous 8-unit tolerance. DNP now uses an 18-unit tolerance; other drivers retain 8. Single sheets in either orientation pass; 6×2, 6×8, A4 and multi-layout names fail. Nine cases pass against the exact production C# compiled with Mono. The Windows-only Python regression runs the real PowerShell/.NET bridge in Windows CI; it is skipped on macOS. Actual Windows driver enumeration and physical DNP output have not been tested on this Mac.
+
+## v0.13 Portrait zoom and beard crop retention
+
+`face-fit.js` supplies portrait-specific defaults (falconer 92%, others 100%), validates browser fallback values and combines operator scale with the saved zoom. `portraitZoom` is a map in local settings, validated on save as known portrait IDs and integer percentages from 75 through 115. Old settings gain an empty map through the existing defaults merge without changing camera/printer/archive settings.
+
+`setSource` snapshots the portrait zoom for the capture. Rendering, archive encoding, downloads and print re-renders retain that snapshot even if an operator saves a new fit. Reset clears it; the next capture reads current settings. LiveCamera uses the same zoom helper. `faceCrop` retains 65% of landmark face height below the chin (previously 30%), preserving source resolution and remapping the measured landmarks as before. No beard segmentation or dynamic artwork expansion is performed.
+
+The operator-only Face fit tab provides a 75–115% slider, portrait selection, current-photo or synthetic-sample preview, explicit save and recommended reset. A bounded three-entry cache holds only tone-corrected fictional samples. Current-photo previews use the existing capture in memory; preview canvases clear on close. Async previews carry generation tokens so rapid input and late results cannot overwrite the latest choice. Camera/printer discovery cannot reset a draft once the panel is open.
+
+Unit checks cover default/override selection, eye-midpoint anchoring and unchanged rotation/offsets, lower crop retention, old-setting migration, per-portrait persistence and invalid inputs. `verify-face-fit.mjs` exercises the actual browser controls, persisted settings, independent portraits, discarded drafts, current-photo previews, frozen current/photo print pixels after saving settings, changed future captures, reset, endpoints, mobile overflow and automatic capture with the fictional bearded guest.
+
+`welcome-gallery.js` rotates the active portrait catalog on the welcome screen at four-second intervals. It caches at most three decoded artwork images, uses generation tokens for pending loads, keeps the previous artwork if loading fails, and updates names/dots with each change. It stops timers off welcome or in a hidden tab; hover and focus pause it, and reduced motion starts paused. A play button can explicitly resume it. Library sync updates the catalog, so hidden portraits do not continue in the rotation. Poster dimensions remain constant across artwork aspect ratios. Browser verification covers cycling, layout stability, pause/resume, direct selection, off-screen stop, reduced motion, active-catalog filtering and mobile overflow.

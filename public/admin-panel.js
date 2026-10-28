@@ -1,13 +1,14 @@
 import { isAdminShortcut } from './operator-shortcut.js';
+import { portraitZoom, defaultPortraitZoom } from './face-fit.js';
 const $ = id => document.getElementById(id);
 const element = (tag, text, className) => Object.assign(document.createElement(tag), { textContent: text, ...(className ? { className } : {}) });
 
-export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
+export function createAdminPanel({ client, addPortrait, syncLibrary, pause, previewFaceFit, currentPortrait }) {
   const dialog = document.createElement('dialog');
   dialog.id = 'admin-dialog'; dialog.setAttribute('aria-labelledby', 'admin-title');
   dialog.innerHTML = `
     <div class="admin-heading"><div><p class="eyebrow">MISRAH · OPERATOR</p><h2 id="admin-title">Booth settings</h2></div><button id="admin-close" class="icon-button" aria-label="Close admin panel">×</button></div>
-    <nav class="admin-tabs" aria-label="Admin sections"><button data-admin-tab="devices" aria-pressed="true">Devices</button><button data-admin-tab="portraits" aria-pressed="false">Portraits</button><button data-admin-tab="usage" aria-pressed="false">Usage</button><button data-admin-tab="storage" aria-pressed="false">Storage</button></nav>
+    <nav class="admin-tabs" aria-label="Admin sections"><button data-admin-tab="devices" aria-pressed="true">Devices</button><button data-admin-tab="fit" aria-pressed="false">Face fit</button><button data-admin-tab="portraits" aria-pressed="false">Portraits</button><button data-admin-tab="usage" aria-pressed="false">Usage</button><button data-admin-tab="storage" aria-pressed="false">Storage</button></nav>
     <section id="admin-devices" class="admin-section">
       <form id="admin-settings"><div class="admin-fields"><label>Camera<select id="admin-camera"><option value="">Default camera</option></select></label><button id="admin-find-cameras" type="button" class="button secondary">Find cameras</button></div>
         <label>Camera & tracking<select id="admin-rate"><option value="30">4K camera · target 30 face updates/sec</option><option value="10">Standard camera · target 10 face updates/sec</option><option value="5">Standard camera · target 5 face updates/sec</option></select></label>
@@ -19,6 +20,22 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
         <div id="admin-printer-status" class="admin-device-status" role="status">Checking the print service…</div>
         <p class="admin-hint">DNP DS-RX1HS: install the DNP driver and add the printer in Windows or macOS first. Paper-out and ribbon alerts appear if the driver reports them. Remaining sheets: unavailable. An idle queue does not confirm paper is loaded.</p>
         <button class="button primary admin-save" type="submit">Save device settings</button>
+      </form>
+    </section>
+    <section id="admin-fit" class="admin-section" hidden>
+      <h3>Adjust the face size</h3><p class="admin-hint">Set the face size separately for each portrait. A smaller size gives more room around the face. Saved changes apply to future captures; the current finished photo keeps its original fit.</p>
+      <form id="admin-fit-settings" class="admin-fit-layout">
+        <figure class="admin-fit-preview"><canvas id="admin-fit-preview" width="560" height="672" role="img" aria-label="Face fit preview"></canvas><figcaption id="admin-fit-preview-label" role="status">Choose a portrait to preview.</figcaption></figure>
+        <div><label>Portrait<select id="admin-fit-portrait"></select></label>
+          <label>Preview with<select id="admin-fit-sample"><option value="current">Current photo</option><option value="bearded">Sample with a beard</option><option value="man">Sample man</option><option value="woman">Sample woman</option></select></label>
+          <label for="admin-face-zoom">Face size <output id="admin-face-zoom-value" for="admin-face-zoom">92%</output></label>
+          <input id="admin-face-zoom" type="range" min="75" max="115" step="1" value="92" aria-describedby="admin-face-zoom-hint">
+          <div class="admin-zoom-ends"><span>Smaller · 75%</span><span>Larger · 115%</span></div>
+          <p id="admin-face-zoom-hint" class="admin-hint">100% is the original size. Long beards can still extend beyond the artwork’s opening. Preview changes here before saving.</p>
+          <button id="admin-fit-reset" type="button" class="button secondary admin-save">Use recommended size</button>
+          <p id="admin-fit-state" class="admin-hint" role="status"></p>
+          <button id="admin-fit-save" type="submit" class="button primary admin-save">Save face fit</button>
+        </div>
       </form>
     </section>
     <section id="admin-portraits" class="admin-section" hidden>
@@ -44,8 +61,47 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
     $('admin-camera-performance').textContent = `${state}${m.sample ? ' (simulated)' : ''}: ${m.width} × ${m.height} · camera ${cameraFps} · face tracking ${m.checksFps.toFixed(1)} / ${m.targetChecks} fps · ${m.delegate || 'starting detector'}${m.inferenceMs === null ? '' : ` · ${m.inferenceMs} ms analysis`}`;
   });
   let activeTab = 'devices', refreshing = false, busy = false, stats;
+  let fitPreviewRequest = 0;
   function feedback(message, error = false) { $('admin-feedback').textContent = message; $('admin-feedback').classList.toggle('error', error); }
   async function run(action) { try { await action(); } catch (error) { feedback(error.message, true); } }
+  async function fitPreview() {
+    const request = ++fitPreviewRequest, id = $('admin-fit-portrait').value, zoom = Number($('admin-face-zoom').value);
+    delete $('admin-fit-preview').dataset.zoom;
+    $('admin-face-zoom-value').value = `${zoom}%`;
+    const changed = zoom !== portraitZoom(client.config.settings, id);
+    $('admin-fit-state').textContent = changed ? 'Unsaved preview · Save to use this size for future captures.' : 'Saved size · Used for future captures.';
+    $('admin-fit-preview-label').textContent = 'Preparing preview…';
+    try {
+      const result = await previewFaceFit({ id, zoom, sample: $('admin-fit-sample').value });
+      if (request !== fitPreviewRequest || !dialog.open) return;
+      const canvas = $('admin-fit-preview');
+      canvas.width = result.canvas.width; canvas.height = result.canvas.height;
+      canvas.getContext('2d').drawImage(result.canvas, 0, 0);
+      canvas.dataset.zoom = String(zoom); canvas.dataset.portrait = id;
+      $('admin-fit-preview-label').textContent = result.label;
+    } catch (error) {
+      if (request !== fitPreviewRequest) return;
+      const canvas = $('admin-fit-preview'); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      $('admin-fit-preview-label').textContent = 'Preview unavailable. Choose another sample and try again.';
+      feedback(error.message, true);
+    }
+  }
+  function selectFit() {
+    const id = $('admin-fit-portrait').value, current = currentPortrait();
+    const hasCurrent = current.hasPhoto && current.id === id;
+    $('admin-fit-sample').querySelector('[value=current]').disabled = !hasCurrent;
+    if ($('admin-fit-sample').value === 'current' && !hasCurrent) $('admin-fit-sample').value = id === 'frontal-weaver' ? 'woman' : 'bearded';
+    $('admin-face-zoom').value = String(portraitZoom(client.config.settings, id));
+    fitPreview();
+  }
+  function fitLibrary() {
+    const previous = $('admin-fit-portrait').value, current = currentPortrait();
+    $('admin-fit-portrait').replaceChildren(...client.config.templates.map(p => new Option(p.name, p.id)));
+    const preferred = current.hasPhoto ? current.id : previous || 'misrah-falconer';
+    if (client.config.templates.some(p => p.id === preferred)) $('admin-fit-portrait').value = preferred;
+    $('admin-fit-sample').value = current.hasPhoto ? 'current' : $('admin-fit-portrait').value === 'frontal-weaver' ? 'woman' : 'bearded';
+    selectFit();
+  }
   function library() {
     $('admin-library').replaceChildren(...client.config.templates.map(item => {
       const row = element('div', '', 'admin-library-row');
@@ -140,7 +196,9 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
     $('admin-rate').value = String(settings.rate); $('admin-print-mode').value = settings.printMode;
     $('admin-printer').replaceChildren(new Option(settings.printer || 'Select a printer', settings.printer));
     $('admin-media').replaceChildren(new Option(settings.media || 'Select 4 × 6 inch paper', settings.media));
-    library(); await Promise.all([run(() => cameras()), run(() => printers(true))]);
+    library();
+    if (activeTab === 'fit') fitLibrary();
+    await Promise.all([run(() => cameras()), run(() => printers(true))]);
     if (activeTab === 'usage') await usage();
     if (activeTab === 'storage') await storage();
   }
@@ -152,13 +210,35 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
   document.addEventListener('booth-admin-toggle', () => { if (!busy) run(open); });
   $('admin-close').addEventListener('click', () => { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener('close', () => document.dispatchEvent(new CustomEvent('booth-admin-closed')));
+  dialog.addEventListener('close', () => {
+    fitPreviewRequest++;
+    const canvas = $('admin-fit-preview'); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    document.dispatchEvent(new CustomEvent('booth-admin-closed'));
+  });
   for (const tab of dialog.querySelectorAll('[data-admin-tab]')) tab.addEventListener('click', () => {
     activeTab = tab.dataset.adminTab;
     for (const other of dialog.querySelectorAll('[data-admin-tab]')) {
       const active = other === tab; other.setAttribute('aria-pressed', String(active)); $('admin-' + other.dataset.adminTab).hidden = !active;
     }
-    feedback(''); refresh();
+    feedback(''); if (activeTab === 'fit') fitLibrary(); refresh();
+  });
+  $('admin-fit-portrait').addEventListener('change', selectFit);
+  $('admin-fit-sample').addEventListener('change', fitPreview);
+  $('admin-face-zoom').addEventListener('input', fitPreview);
+  $('admin-fit-reset').addEventListener('click', () => {
+    $('admin-face-zoom').value = String(defaultPortraitZoom($('admin-fit-portrait').value)); fitPreview();
+  });
+  $('admin-fit-settings').addEventListener('submit', event => {
+    event.preventDefault(); if ($('admin-fit-save').disabled) return;
+    const id = $('admin-fit-portrait').value, zoom = Number($('admin-face-zoom').value);
+    run(async () => {
+      $('admin-fit-save').disabled = true;
+      try {
+        await client.saveSettings({ ...client.config.settings, portraitZoom: { ...client.config.settings.portraitZoom, [id]: zoom } });
+        fitPreview();
+        feedback('Face fit saved on this computer. Applies to future captures.');
+      } finally { $('admin-fit-save').disabled = false; }
+    });
   });
   $('admin-find-cameras').addEventListener('click', () => run(() => cameras(true)));
   $('admin-refresh-printers').addEventListener('click', () => run(() => printers(true)));

@@ -55,7 +55,7 @@ try {
   assert.equal(await page.locator('.admin-library-row').filter({ hasText: 'Side-facing test' }).count(), 0);
   await page.locator('#admin-close').click();
   await page.locator('#touch-start').click();
-  assert.equal(await page.locator('#scene-list .frame-card').count(), 4);
+  assert.equal(await page.locator('#scene-list .frame-card').count(), 3);
   const imported = await page.locator('#scene-list .frame-card').filter({ hasText: 'QA frontal portrait' }).getAttribute('id');
   await page.reload();
   await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });

@@ -17,13 +17,14 @@ export function faceGeometry(landmarks, width, height) {
 
 // Crop the measured frame at its original resolution. Padding leaves room for
 // roll correction and the portrait's feathered opening without upscaling pixels.
-export function faceCrop(landmarks, width, height, padding = .3) {
+export function faceCrop(landmarks, width, height, padding = .3, lowerPadding = .65) {
   const b = faceGeometry(landmarks, width, height).bounds;
   const px = (b.right - b.left) * padding, py = (b.bottom - b.top) * padding;
   const x = Math.floor(clamp(b.left - px, 0, width - 1));
   const y = Math.floor(clamp(b.top - py, 0, height - 1));
   const right = Math.ceil(clamp(b.right + px, x + 1, width));
-  const bottom = Math.ceil(clamp(b.bottom + py, y + 1, height));
+  // Retain more original pixels below the chin for beards and smaller face fits.
+  const bottom = Math.ceil(clamp(b.bottom + (b.bottom - b.top) * Math.max(padding, lowerPadding), y + 1, height));
   return { x, y, width: right - x, height: bottom - y };
 }
 

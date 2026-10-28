@@ -1,4 +1,4 @@
-# Misrah Studio — local photobooth v0.12
+# Misrah Studio — local photobooth v0.13
 
 A clean, touch-first photobooth for an Apple-silicon Mac mini with 16 GB unified memory. Guests choose a straight-facing heritage portrait, look at the camera, and print a keepsake. Everything runs on the booth computer. This prototype uses geometric face insertion and local tone correction, rather than a cloud or neural identity-swap service.
 
@@ -170,3 +170,13 @@ On the Windows booth, open admin with F2, choose Direct to selected printer, sel
 Source: [DNP RX1 Windows driver manual, print area](https://www.ansystem.com/GlobDownloads/DNP/Drivers/RX1_RX1HS/RX1_RX1HS_Driver_V1.23_Instruction_Win_11_En.pdf).
 
 Update by extracting the new ZIP completely into a new writable folder. To keep this booth’s settings and history, stop the old app, then copy its `.local-data` and `photos` folders into the new app folder before launching. The release contains no guest photographs or local settings.
+
+## v0.13 Face size controls
+
+Press **F2 → Face fit** to adjust face size separately for each portrait. The slider ranges from **75% to 115%**, and the preview updates as you move it. Use the current finished photo or a fictional sample, including the bundled sample with a beard. Press **Save face fit** to keep that portrait’s setting on this computer. The setting survives restart and applies to future captures. Close without saving to discard the preview. **Use recommended size** resets the slider to 92% for the falconer and 100% for other portraits; press Save to store it.
+
+The falconer starts 8% smaller to give more room around the face; the weaver retains its precise eye alignment. New camera captures retain extra original pixels below the chin. Eye-centred zoom uses the same scale in the live composite and finished photograph. Admin changes leave the current finished photo, archive and reprints at the size used when it was captured. Retake after saving to use a new fit for that guest. Very long beards can still exceed the fixed opening in the artwork; this control does not extend the opening or remove the camera background.
+
+## Welcome portrait previews
+
+The home screen automatically shows each available portrait for four seconds, with its name and a gentle transition. Only portraits currently shown to guests appear. Tap a dot to choose a preview, or use Pause previews / Play previews. The rotation pauses while the pointer or keyboard focus is over the preview, stops after the guest starts, and stops when the browser is hidden. Reduced-motion mode starts paused and uses still transitions; Play previews can opt into rotation. The touch-to-start button and the page layout stay fixed.

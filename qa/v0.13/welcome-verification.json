@@ -1,0 +1,13 @@
+{
+  "first": "The palm weaver",
+  "second": "The falconer",
+  "rotation": true,
+  "layoutStable": true,
+  "pauseResume": true,
+  "manualSelection": true,
+  "stopsAfterStart": true,
+  "reducedMotion": true,
+  "hiddenPortraitExcluded": true,
+  "mobileOverflow": false,
+  "errors": []
+}

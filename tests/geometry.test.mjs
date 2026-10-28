@@ -88,3 +88,14 @@ test('face crops stay inside landscape and portrait camera frames at every edge'
     }
   }
 });
+
+test('capture retains extra original pixels below the chin for beards', () => {
+  const points = Array.from({ length: 478 }, () => ({ x: .5, y: .35 }));
+  points[10] = { x: .5, y: .15 }; points[152] = { x: .5, y: .55 };
+  points[234] = { x: .3, y: .35 }; points[454] = { x: .7, y: .35 };
+  const crop = faceCrop(points, 1000, 1000);
+  assert.equal(crop.y, 30);
+  assert.equal(crop.y + crop.height, 810);
+  const mapped = landmarksForCrop(points, 1000, 1000, crop);
+  assert.ok(Math.abs(mapped[152].y * crop.height + crop.y - 550) < 1e-9);
+});

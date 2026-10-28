@@ -1,0 +1,11 @@
+Misrah Photobooth v0.13.0
+
+- F2 > Face fit: adjust each portrait from 75% to 115%, with current-photo and fictional-sample previews.
+- Save persists the setting for future captures; closing without saving discards the preview.
+- Use recommended size returns the falconer to 92% and other portraits to 100%.
+- Current finished photos, archives, downloads and prints keep the size used at capture; retake to use a newly saved fit.
+- More original camera detail is retained below the chin. Very long beards remain limited by the fixed artwork opening.
+- The welcome page rotates through all available portraits every four seconds, displaying their names.
+- Visitors can select a preview or pause/resume rotation. Hidden portraits are excluded. Rotation stops after starting a session, on hidden tabs and initially with reduced motion.
+
+Validation: 42 JavaScript unit tests and 32 Python tests pass locally; one Windows-only bridge test is skipped on macOS and runs in Windows CI. Browser checks cover per-portrait fit, saved settings, discarded drafts, unchanged current photo/print, changed future captures, automatic bearded capture, welcome rotation, pause/resume, active-library filtering, mobile layouts, fixed 16:9 display sizes and production archiving.

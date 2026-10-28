@@ -112,6 +112,30 @@ class BoothTests(unittest.TestCase):
             self.assertEqual(reopened.config()['settings']['rate'], rate)
             reopened.db.close()
 
+    def test_face_zoom_is_per_portrait_and_persists_across_restart(self):
+        settings = {**self.settings, 'portraitZoom': {'misrah-falconer': 82, 'frontal-weaver': 100}}
+        self.service.save_settings(settings)
+        reopened = BoothService(self.directory.name, self.printer)
+        try:
+            self.assertEqual(reopened.config()['settings'], settings)
+        finally:
+            reopened.db.close()
+
+    def test_old_booth_settings_gain_face_zoom_without_losing_devices(self):
+        legacy = {key: value for key, value in self.settings.items() if key != 'portraitZoom'}
+        self.service.db.execute('UPDATE settings SET value=?', (json.dumps(legacy),))
+        self.service.db.commit()
+        self.assertEqual(self.service.config()['settings'], self.settings)
+
+    def test_face_zoom_rejects_invalid_sizes_and_unavailable_portraits(self):
+        for zooms in [None, [], {'misrah-falconer': 74}, {'misrah-falconer': 116},
+                      {'misrah-falconer': True}, {'misrah-falconer': 85.5},
+                      {'misrah-falconer': '90'}, {'missing': 90}, {'misrah-sailor': 90}]:
+            with self.subTest(zooms=zooms):
+                with self.assertRaises(ValueError):
+                    self.service.save_settings({**self.settings, 'portraitZoom': zooms})
+        self.assertEqual(self.service.config()['settings'], self.settings)
+
     def test_same_request_is_never_submitted_twice_even_concurrently(self):
         key = str(uuid.uuid4())
         def send(_):

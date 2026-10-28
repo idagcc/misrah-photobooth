@@ -1,0 +1,11 @@
+{
+  "defaultMaleZoom": 92,
+  "persistedZoom": 80,
+  "independentFemaleZoom": 100,
+  "currentPhotoFrozen": true,
+  "futureCapturesUpdated": true,
+  "printConsistency": true,
+  "automaticBeardedCapture": true,
+  "mobileOverflow": false,
+  "errors": []
+}

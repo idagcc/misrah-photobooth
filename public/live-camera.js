@@ -2,6 +2,7 @@ import { FACE_OVAL, faceGeometry, faceCrop, landmarksForCrop, alignment } from '
 import { assessFrame, advanceHold, advancePoseCountdown, canCaptureFace, liveDefaults } from './live-quality.js';
 import { cameraProfile, analysisDue } from './camera-performance.js';
 import { updateFaceMap } from './live-display.js';
+import { portraitZoom, withPortraitZoom } from './face-fit.js';
 const $ = id => document.getElementById(id);
 const canvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
@@ -323,7 +324,7 @@ export class LiveCamera {
       const smooth = old ? { ...geometry, anchor: { x: old.anchor.x * .35 + geometry.anchor.x * .65, y: old.anchor.y * .35 + geometry.anchor.y * .65 },
         eyeDistance: old.eyeDistance * .35 + geometry.eyeDistance * .65, angle: old.angle * .35 + geometry.angle * .65 } : geometry;
       this.lastGeometry = smooth;
-      const t = alignment(smooth, frame.target, { x: 0, y: 0, scale: 100, flip: false, rotation: 0 });
+      const t = alignment(smooth, frame.target, withPortraitZoom({ x: 0, y: 0, scale: 100, flip: false, rotation: 0 }, portraitZoom(this.getSettings(), frame.id)));
       c.save(); c.scale(scale, scale);
       const b = frame.bounds; c.beginPath(); c.rect(b.left - 6, b.top - 6, b.right - b.left + 12, b.bottom - b.top + 12); c.clip();
       c.translate(t.x, t.y); c.rotate(t.angle); c.scale(t.scale, t.scale); c.translate(-smooth.anchor.x, -smooth.anchor.y);
