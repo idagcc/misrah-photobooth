@@ -1,27 +1,17 @@
-// Calibrated to the three supplied final artworks, which deliberately contain no detectable faces.
-// Retain the existing role IDs so stored selections and operator visibility settings survive updates.
+// Calibrated to the October 28 artwork, restored and exported at 2x source dimensions.
+// The weaver retains her role ID; retired male portraits keep their historical records.
 export const APPROVED_PORTRAITS = {
   'frontal-weaver': {
-    src: 'assets/approved/basket-weaver.png', name: 'The basket weaver', width: 1122, height: 1402,
-    bounds: { left: 460, top: 336, right: 665, bottom: 536 },
-    eyes: [[510, 400], [611, 400]], tone: [544, 526, 32, 9],
-    // Only the two skin-coloured eye apertures are removed. The brow, bridge and lower plate stay opaque.
-    apertures: [
-      'M 469 380 L 551 380 L 552 417 C 528 423 497 422 483 413 Q 471 402 469 380 Z',
-      'M 569 380 L 656 381 Q 653 401 640 412 C 622 423 593 423 569 418 Z'
-    ]
+    src: 'assets/approved/palm-weaver.png', name: 'The palm weaver', width: 2048, height: 3072,
+    bounds: { left: 890, top: 876, right: 1214, bottom: 1040 },
+    eyes: [[970, 958], [1128, 958]], tone: [940, 1046, 48, 32],
+    seeds: [[970, 958], [1128, 958]], fringe: 1
   },
-  'frontal-pearl-trader': {
-    src: 'assets/approved/pearl-diver.png', name: 'The pearl diver', width: 1024, height: 1536,
-    bounds: { left: 427, top: 279, right: 610, bottom: 532 },
-    eyes: [[478, 369], [558, 369]], tone: [483, 541, 64, 36],
-    seed: [515, 400]
-  },
-  'misrah-sailor': {
-    src: 'assets/approved/sailor.png', name: 'The sailor', width: 1024, height: 1536,
-    bounds: { left: 421, top: 322, right: 631, bottom: 604 },
-    eyes: [[480, 415], [572, 415]], tone: [490, 610, 64, 30],
-    seed: [520, 460]
+  'misrah-falconer': {
+    src: 'assets/approved/falconer.png', name: 'The falconer', width: 2172, height: 2896,
+    bounds: { left: 954, top: 450, right: 1472, bottom: 1040 },
+    eyes: [[1096, 666], [1330, 666]], tone: [1110, 1046, 80, 60],
+    seeds: [[1212, 740]], fringe: 3
   }
 };
 
@@ -38,9 +28,9 @@ export function prepareApprovedPortrait(definition, image, makeCanvas) {
     // Flood only the enclosed neutral white placeholder, not the beige headwear or background.
     const original = makeCanvas(w, h), c = original.getContext('2d'); c.drawImage(image, 0, 0);
     const pixels = c.getImageData(0, 0, w, h).data, seen = new Uint8Array(w * h), queue = new Int32Array(w * h);
-    const [sx, sy] = spec.seed, b = spec.bounds;
-    let head = 0, tail = 1;
-    queue[0] = sy * w + sx; seen[queue[0]] = 1;
+    const b = spec.bounds;
+    let head = 0, tail = 0, filled = 0;
+    for (const [sx, sy] of spec.seeds) { queue[tail++] = sy * w + sx; seen[sy * w + sx] = 1; }
     const matte = mctx.createImageData(w, h);
     while (head < tail) {
       const index = queue[head++], x = index % w, y = Math.floor(index / w);
@@ -48,15 +38,16 @@ export function prepareApprovedPortrait(definition, image, makeCanvas) {
       if (x < b.left - 4 || x > b.right + 4 || y < b.top - 4 || y > b.bottom + 4 ||
           Math.min(...rgb) < 200 || Math.max(...rgb) - Math.min(...rgb) > 25) continue;
       matte.data.fill(255, i, i + 4);
+      filled++;
       for (const next of [index - 1, index + 1, index - w, index + w]) {
         if (next >= 0 && next < seen.length && !seen[next]) { seen[next] = 1; queue[tail++] = next; }
       }
     }
-    if (head < 10000) throw new Error('The approved face opening could not be prepared.');
+    if (filled < 10000) throw new Error('The approved face opening could not be prepared.');
     // Remove the antialiased placeholder fringe, including its thin grey outline.
     const solid = makeCanvas(w, h); solid.getContext('2d').putImageData(matte, 0, 0);
-    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
-      if (dx * dx + dy * dy <= 4) mctx.drawImage(solid, dx, dy);
+    for (let dy = -spec.fringe; dy <= spec.fringe; dy++) for (let dx = -spec.fringe; dx <= spec.fringe; dx++) {
+      if (dx * dx + dy * dy <= spec.fringe ** 2) mctx.drawImage(solid, dx, dy);
     }
   }
   const layer = makeCanvas(w, h), c = layer.getContext('2d'); c.drawImage(image, 0, 0);
@@ -70,5 +61,5 @@ export function prepareApprovedPortrait(definition, image, makeCanvas) {
   for (let i = 0; i < patch.length; i += 4) for (let ch = 0; ch < 3; ch++) rgb[ch] += patch[i + ch] / (patch.length / 4);
   return { id: definition.id, name: definition.name, image, layer, mask, bounds: { ...spec.bounds }, target,
     pose: { yaw: 0, pitch: 0, roll: 0 }, quality: { rgb, brightness: (rgb[0] + rgb[1] + rgb[2]) / 3, styleStrength: .85 },
-    approved: true, custom: false, generated: false, revision: 'approved-v1' };
+    approved: true, custom: false, generated: false, revision: 'approved-v2' };
 }

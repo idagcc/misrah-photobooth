@@ -1,4 +1,4 @@
-# Misrah Studio implementation — v0.7
+# Misrah Studio implementation — v0.12
 
 ## Guest and operator boundaries
 
@@ -115,3 +115,13 @@ The normal launcher opens `/landscape.html`, which embeds the unchanged guest do
 ### v0.11 full-screen Windows launch and display sizing
 
 `desktop_launch.py` discovers Edge or Chrome from Windows App Paths, standard installation paths or PATH. Windows defaults to kiosk/full-screen launch in a dedicated local browser profile. `--windowed` opens the default browser normally; `--no-open` continues to suppress browser launch for automation. The launcher does not alter OS display settings or printer configuration. F2 toggles the admin panel, including when focus is on the landscape wrapper. Desktop guest styles use the display width for larger artwork and touch targets, with the welcome, choices and result screens verified to fit the fixed 1080 px display height. Portrait print composition remains 1200 × 1800.
+
+## v0.12 October 28 artwork, processing and Windows media
+
+Current built-ins are `frontal-weaver` (new palm-weaver artwork) and `misrah-falconer`. Previous pearl-diver/sailor IDs are retired and hidden from both portrait libraries on upgrade; their database records and aggregate usage are retained. The previous three PNGs are removed from the package. The new restored frames are exported at twice the supplied dimensions with small JPEG thumbnails for cards. `approved-portraits.js` floods only the neutral white aperture components from calibrated seeds. The female bridge, brow and lower plate remain foreground.
+
+`photo-grain.js` caches one deterministic monochrome tile and adds a subtle soft-light texture to the finished portrait before branding. Repeated renders use the same grain, so the screen, download, archive and print agree. `brandedPortrait` caps exports at 1600 × 2400, within the service’s existing 2400-pixel and 3 MB JPEG limits.
+
+`createGuestFlow.processing` opens the animated modal and returns a minimum-three-second promise. `setSource` starts that promise alongside detection, tone matching and saving, then awaits it before any result/error reveal. A slow operation keeps the modal open after the countdown. Reduced-motion mode retains the delay and readable copy without rotation. Browser verification covers both uploaded fixtures and the actual automatic synthetic-camera capture path, exact calibrated foreground plus grain, both eye apertures, exports, browser printing, five landscape viewports and reset.
+
+The Windows bridge compiles one C# `IsPhotoPaper` predicate used by both media listing and submission. DNP is identified by the installed driver name, including queues renamed by an operator. Its bleed area (615 × 413 hundredths of an inch) failed the previous 8-unit tolerance. DNP now uses an 18-unit tolerance; other drivers retain 8. Single sheets in either orientation pass; 6×2, 6×8, A4 and multi-layout names fail. Nine cases pass against the exact production C# compiled with Mono. The Windows-only Python regression runs the real PowerShell/.NET bridge in Windows CI; it is skipped on macOS. Actual Windows driver enumeration and physical DNP output have not been tested on this Mac.

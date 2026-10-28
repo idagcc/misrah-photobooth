@@ -22,10 +22,11 @@ import time
 import uuid
 
 BUILTINS = [
-    {"id": "frontal-weaver", "name": "The basket weaver", "src": "assets/approved/basket-weaver.png"},
-    {"id": "frontal-pearl-trader", "name": "The pearl diver", "src": "assets/approved/pearl-diver.png"},
-    {"id": "misrah-sailor", "name": "The sailor", "src": "assets/approved/sailor.png"},
+    {"id": "frontal-weaver", "name": "The palm weaver", "src": "assets/approved/palm-weaver.png", "thumbnail": "assets/approved/palm-weaver-thumb.jpg"},
+    {"id": "misrah-falconer", "name": "The falconer", "src": "assets/approved/falconer.png", "thumbnail": "assets/approved/falconer-thumb.jpg"},
 ]
+RETIRED_BUILTINS = ("frontal-pearl-trader", "misrah-sailor")
+
 DEFAULTS = {"cameraId": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True}
 EVENT_TIMEZONE = timezone(timedelta(hours=4), "Asia/Dubai")
 MIN_ARCHIVE_FREE = 1024 ** 3
@@ -293,23 +294,26 @@ class BoothService:
         self.db.execute("INSERT OR IGNORE INTO settings VALUES (1, ?)", (json.dumps(DEFAULTS),))
         for item in BUILTINS:
             self.db.execute("INSERT OR IGNORE INTO templates(id, name) VALUES (?, ?)", (item["id"], item["name"]))
+        self.db.executemany("UPDATE templates SET active=0 WHERE id=?", [(key,) for key in RETIRED_BUILTINS])
         self.db.execute("UPDATE jobs SET state='unknown', message='Server restarted before the print response was recorded. Check the print queue.' WHERE state='submitting'")
         self.db.commit()
 
-    def config(self):
+    def config(self, include_retired=False):
         with self.lock:
             settings = {**DEFAULTS, **json.loads(self.db.execute("SELECT value FROM settings WHERE id=1").fetchone()[0])}
-            templates = [dict(row) for row in self.db.execute("SELECT * FROM templates ORDER BY rowid")]
+            templates = [dict(row) for row in self.db.execute("SELECT * FROM templates ORDER BY rowid") if include_retired or row["id"] not in RETIRED_BUILTINS]
         sources = {item["id"]: item["src"] for item in BUILTINS}
         for item in templates:
             item["src"] = sources.get(item["id"], f"/api/template-images/{item['id']}.jpg")
             if item["id"] in sources:
                 item["name"] = next(b["name"] for b in BUILTINS if b["id"] == item["id"])
             thumb = self.directory / "templates" / f"{item['id']}-thumb.jpg"
-            item["thumbnail"] = f"/api/template-images/{item['id']}-thumb.jpg" if thumb.exists() else item["src"]
+            item["thumbnail"] = f"/api/template-images/{item['id']}-thumb.jpg" if thumb.exists() else next((b["thumbnail"] for b in BUILTINS if b["id"] == item["id"]), item["src"])
         return {"settings": settings, "templates": templates}
 
     def template(self, template):
+        if template in RETIRED_BUILTINS:
+            raise ValueError("This portrait has been replaced. Choose an available portrait.")
         with self.lock:
             if not self.db.execute("SELECT 1 FROM templates WHERE id=?", (template,)).fetchone():
                 raise ValueError("Choose an available portrait.")
@@ -477,7 +481,7 @@ class BoothService:
     def stats(self):
         with self.lock:
             rows = []
-            for item in self.config()["templates"]:
+            for item in self.config(include_retired=True)["templates"]:
                 counts = {row[0]: row[1] for row in self.db.execute("SELECT kind, count(*) FROM events WHERE template=? GROUP BY kind", (item["id"],))}
                 jobs = {row[0]: row[1] for row in self.db.execute("SELECT state, count(*) FROM jobs WHERE template=? GROUP BY state", (item["id"],))}
                 rows.append({"id": item["id"], "name": item["name"], "selections": counts.get("selection", 0),

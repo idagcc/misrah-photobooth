@@ -1,0 +1,47 @@
+MISRAH PHOTOBOOTH v0.12.0 — 28 October 2026
+
+Updated builds:
+- Windows x64: photobooth/dist/v0.12.0/misrah-photobooth-v0.12.0-windows-x64.zip
+- macOS: photobooth/dist/v0.12.0/misrah-photobooth-v0.12.0-macos.zip
+
+Extract the complete Windows ZIP into a writable folder and run Start Photobooth.bat.
+No separate Python or Node installation is needed on Windows.
+To retain settings, history and saved photos, close the old app and copy its .local-data and photos folders into the extracted app folder before starting it.
+
+Changes:
+- Previous three built-in frames replaced by the supplied palm weaver and falconer.
+- Restored artwork exported at 2x original dimensions, with calibrated face/eye openings.
+- Three-second animated “Your photo is getting ready” countdown after capture.
+- Processing runs during the countdown; slower processing keeps the loading screen open.
+- Subtle fixed monochrome film grain included in preview, saved copy, archive and print.
+- Finished prints: 1600 x 2400 pixels on 4 x 6 inch paper.
+- Windows paper matching accepts DNP bleed dimensions in either orientation and rejects strips, larger paper and multi-photo layouts.
+
+DNP issue:
+The prior Windows check only allowed a difference of 0.08 inch from exactly 4 x 6. The DNP RX1 driver documents a 156.1 x 105.0 mm print area for (6x4), roughly 6.15 x 4.13 inches. Both the paper list and print submission now use the same check, with a 0.18-inch tolerance for DNP drivers and the original tolerance for other drivers. This resolves a concrete software cause of the reported size rejection; the user's actual printer was not connected here.
+DNP-authored driver manual: https://www.ansystem.com/GlobDownloads/DNP/Drivers/RX1_RX1HS/RX1_RX1HS_Driver_V1.23_Instruction_Win_11_En.pdf
+
+After connecting on Windows, open F2 > Devices. Choose Direct to selected printer, select the DNP queue, choose the single-photo (6x4) or PR (4x6) size and save.
+
+Validation:
+- 39 JavaScript unit tests passed.
+- Python: 29 passed; 1 Windows-only PowerShell bridge test skipped on macOS.
+- Exact production Windows C# helper compiled under Mono; 9 media-classification cases passed.
+- Browser checks passed: both new frames, gold face-plate preservation, consistent grain, three-second delay on upload and automatic capture, export, browser print, reset, mobile layout, five fixed landscape display sizes, archive success/retry/pause.
+- Both ZIPs extracted and their packaged servers, assets, database and model checked locally.
+- Actual Windows runtime/PowerShell execution, installed DNP driver enumeration and physical printing have not been tested on this Mac.
+
+FRAME ASSETS
+Mode: built-in image_gen edit/restoration, followed by deterministic 2x export resampling. The AI restoration output was native size; the final PNGs were resampled to the required 2x dimensions. These are enhanced artwork exports, not newly photographed source detail.
+
+Final saved assets:
+public/assets/approved/falconer.png
+public/assets/approved/palm-weaver.png
+
+Final prompts used (one built-in call per image):
+
+Falconer:
+Use case: precise-object-edit. Asset type: production photobooth frame. Input image is the sole edit target: male falconer with a single blank white face opening. Upscale and restore this EXACT image at the highest available portrait resolution, aiming for twice the original linear resolution. Preserve the original aspect ratio, pixel composition, all objects, clothing, border, vintage sepia color, cracks and scratches, and exact geometry and positions of the blank white face/eye openings. Those openings MUST remain completely blank white; do not fill them with a person or facial features. Enhance fine textile, falcon and architectural detail gently without redesigning anything. Do not crop, stretch, add text, logos, faces, eyes or other objects. Keep white openings opaque; no transparency requested.
+
+Palm weaver:
+Use case: precise-object-edit. Asset type: production photobooth frame. Input image is the sole edit target: seated female palm weaver with two blank white eye openings separated by the gold burqa bridge. Upscale and restore this EXACT image at the highest available portrait resolution, aiming for twice the original linear resolution. Preserve the original aspect ratio, pixel composition, all objects, clothing, border, vintage sepia color, cracks and scratches, and exact geometry and positions of the blank white face/eye openings. Those openings MUST remain completely blank white; do not fill them with a person or facial features. Enhance fine textile, falcon and architectural detail gently without redesigning anything. Do not crop, stretch, add text, logos, faces, eyes or other objects. Keep white openings opaque; no transparency requested.

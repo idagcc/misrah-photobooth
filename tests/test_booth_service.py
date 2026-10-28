@@ -75,9 +75,24 @@ class BoothTests(unittest.TestCase):
         self.assertIn('-thumb.jpg', added['thumbnail'])
         self.service.set_active(added['id'], False)
         self.service.set_active('frontal-weaver', False)
-        self.service.set_active('misrah-sailor', False)
         with self.assertRaisesRegex(ValueError, 'at least one'):
-            self.service.set_active('frontal-pearl-trader', False)
+            self.service.set_active('misrah-falconer', False)
+
+    def test_replaced_portraits_leave_library_but_keep_existing_history(self):
+        for key in ('frontal-pearl-trader', 'misrah-sailor'):
+            self.service.db.execute('INSERT INTO templates(id,name,active) VALUES (?,?,1)', (key, 'Old artwork'))
+            self.service.db.execute('INSERT INTO events(id,template,kind) VALUES (?,?,?)', (str(uuid.uuid4()), key, 'capture'))
+        self.service.db.commit()
+        reopened = BoothService(self.directory.name, self.printer)
+        try:
+            self.assertEqual([t['id'] for t in reopened.config()['templates']], ['frontal-weaver', 'misrah-falconer'])
+            self.assertEqual(reopened.db.execute("SELECT count(*) FROM templates WHERE active=0").fetchone()[0], 2)
+            self.assertEqual(reopened.stats()['totals']['captures'], 2)
+            with self.assertRaisesRegex(ValueError, 'replaced'):
+                reopened.set_active('misrah-sailor', True)
+            self.assertEqual(reopened.config()['settings'], self.settings)
+        finally:
+            reopened.db.close()
 
     def test_import_rejects_landscape_or_malformed_image(self):
         for value in (image(1600, 1000), 'data:image/jpeg;base64,bm90LWEtanBlZw=='):
@@ -121,7 +136,7 @@ class BoothTests(unittest.TestCase):
         self.printer.state = 'completed'
         self.service.status()
         self.assertEqual(self.service.stats()['totals']['completed'], 1)
-        self.service.print_photo(str(uuid.uuid4()), 'frontal-pearl-trader', image())
+        self.service.print_photo(str(uuid.uuid4()), 'misrah-falconer', image())
         self.printer.state = 'cancelled'
         self.service.status()
         stats = self.service.stats()['totals']

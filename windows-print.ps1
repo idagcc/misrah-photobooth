@@ -8,45 +8,14 @@ try {
     $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
     $server = New-Object System.Printing.LocalPrintServer
     try {
-        if ($request.action -eq 'printers') {
-            $result = @($server.GetPrintQueues() | ForEach-Object {
-                $_.Refresh()
-                $fault = ''
-                if ($_.IsPaperJammed) { $fault = 'Paper jam. Check the printer.' }
-                elseif ($_.IsOutOfPaper) { $fault = 'Paper empty. Load paper.' }
-                elseif ($_.IsDoorOpened) { $fault = 'Printer cover is open.' }
-                elseif ($_.IsOffline) { $fault = 'Printer is offline.' }
-                $blocked = $fault -ne '' -or $_.IsInError -or $_.IsPaused -or $_.NeedUserIntervention
-                # File-output queues prompt for a filename and cannot serve unattended guests.
-                if ($_.QueuePort.Name -match '^(FILE:|PORTPROMPT:)$' -or $_.Name -match 'Microsoft Print to PDF|XPS Document Writer|OneNote|^Fax$') { return }
-                @{ id=$_.Name; name=$_.Name; model=$_.QueueDriver.Name; state=3;
-                   message=$_.QueueStatus.ToString(); reasons=@($_.QueueStatus.ToString()); accepting=(-not $blocked);
-                   fault=$fault; blocked=$blocked; mediaRemaining=$null; statusSource='Windows print queue - driver-reported' }
-            })
-        } elseif ($request.action -eq 'media') {
-            $settings = New-Object System.Drawing.Printing.PrinterSettings
-            $settings.PrinterName = $request.printer
-            if (-not $settings.IsValid) { throw 'The selected Windows printer is unavailable.' }
-            $result = @($settings.PaperSizes | Where-Object {
-                ([Math]::Abs($_.Width-400) -le 8 -and [Math]::Abs($_.Height-600) -le 8) -or
-                ([Math]::Abs($_.Width-600) -le 8 -and [Math]::Abs($_.Height-400) -le 8)
-            } | ForEach-Object { @{id=[string]$_.RawKind; name=('4 x 6 inch - ' + $_.PaperName)} })
-        } elseif ($request.action -eq 'job') {
-            $queue = $server.GetPrintQueue($request.printer)
+        $isDnp = $false
+        if ($request.action -in @('media', 'submit')) {
+            $driverQueue = $server.GetPrintQueue($request.printer)
             try {
-                # A job disappearing is not evidence of successful physical output.
-                $job = @($queue.GetPrintJobInfoCollection() | Where-Object JobIdentifier -eq $request.jobId) | Select-Object -First 1
-                $result = 'unknown'
-                if ($null -ne $job) {
-                    if ($job.IsDeleted -or $job.IsDeleting) { $result='cancelled' }
-                    elseif ($job.IsCompleted -or $job.IsPrinted) { $result='completed' }
-                    elseif ($job.IsInError) { $result='stopped' }
-                    elseif ($job.IsPaused) { $result='held' }
-                    elseif ($job.IsPrinting) { $result='processing' }
-                    else { $result='queued' }
-                }
-            } finally { $queue.Dispose() }
-        } elseif ($request.action -in @('submit', 'check')) {
+                $isDnp = ($driverQueue.QueueDriver.Name -match '(?i)DNP|Dai Nippon|DS[-_ ]?(RX1|620|820|40|80)|DSRX1')
+            } finally { $driverQueue.Dispose() }
+        }
+        if ($request.action -in @('media', 'submit', 'check', 'test-media')) {
             Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
 using System;
 using System.Drawing;
@@ -67,13 +36,21 @@ public static class MisrahPrint {
     [DllImport("kernel32.dll")] static extern IntPtr GlobalLock(IntPtr handle);
     [DllImport("kernel32.dll")] static extern bool GlobalUnlock(IntPtr handle);
     [DllImport("kernel32.dll")] static extern IntPtr GlobalFree(IntPtr handle);
-    public static int Submit(string printer, int paperId, byte[] jpeg) {
+    // DNP (6x4) includes bleed: 156.1 x 105.0 mm, about 615 x 413 hundredths of an inch.
+    // Restrict the extra tolerance to DNP drivers and exclude their multi-image variants.
+    public static bool IsPhotoPaper(PaperSize paper, bool dnp) {
+        string name=paper.PaperName ?? "";
+        if (System.Text.RegularExpressions.Regex.IsMatch(name, @"(?i)(?:[46]\s*[x\u00d7]\s*[46]\s*[\)\]]?\s*[x\u00d7]\s*[2-9])|\b(?:multi|[2-9]\s*up)\b")) return false;
+        int tolerance=dnp ? 18 : 8;
+        int small=Math.Min(paper.Width,paper.Height), large=Math.Max(paper.Width,paper.Height);
+        return Math.Abs(small-400)<=tolerance && Math.Abs(large-600)<=tolerance;
+    }
+    public static int Submit(string printer, int paperId, byte[] jpeg, bool dnp) {
         var settings = new PrinterSettings { PrinterName=printer, Copies=1, PrintToFile=false };
         if (!settings.IsValid) throw new Exception("Selected Windows printer is unavailable.");
         PaperSize paper=null;
         foreach (PaperSize item in settings.PaperSizes) {
-            if (item.RawKind==paperId && ((Math.Abs(item.Width-400)<=8 && Math.Abs(item.Height-600)<=8) ||
-                (Math.Abs(item.Width-600)<=8 && Math.Abs(item.Height-400)<=8))) { paper=item; break; }
+            if (item.RawKind==paperId && IsPhotoPaper(item, dnp)) { paper=item; break; }
         }
         if (paper==null) throw new Exception("Selected 4 x 6 paper is unavailable.");
         var page = new PageSettings(settings) { PaperSize=paper, Landscape=false };
@@ -117,8 +94,51 @@ public static class MisrahPrint {
     }
 }
 '@
+        }
+        if ($request.action -eq 'printers') {
+            $result = @($server.GetPrintQueues() | ForEach-Object {
+                $_.Refresh()
+                $fault = ''
+                if ($_.IsPaperJammed) { $fault = 'Paper jam. Check the printer.' }
+                elseif ($_.IsOutOfPaper) { $fault = 'Paper empty. Load paper.' }
+                elseif ($_.IsDoorOpened) { $fault = 'Printer cover is open.' }
+                elseif ($_.IsOffline) { $fault = 'Printer is offline.' }
+                $blocked = $fault -ne '' -or $_.IsInError -or $_.IsPaused -or $_.NeedUserIntervention
+                # File-output queues prompt for a filename and cannot serve unattended guests.
+                if ($_.QueuePort.Name -match '^(FILE:|PORTPROMPT:)$' -or $_.Name -match 'Microsoft Print to PDF|XPS Document Writer|OneNote|^Fax$') { return }
+                @{ id=$_.Name; name=$_.Name; model=$_.QueueDriver.Name; state=3;
+                   message=$_.QueueStatus.ToString(); reasons=@($_.QueueStatus.ToString()); accepting=(-not $blocked);
+                   fault=$fault; blocked=$blocked; mediaRemaining=$null; statusSource='Windows print queue - driver-reported' }
+            })
+        } elseif ($request.action -eq 'media') {
+            $settings = New-Object System.Drawing.Printing.PrinterSettings
+            $settings.PrinterName = $request.printer
+            if (-not $settings.IsValid) { throw 'The selected Windows printer is unavailable.' }
+            $result = @($settings.PaperSizes | Where-Object {
+                [MisrahPrint]::IsPhotoPaper($_, $isDnp)
+            } | ForEach-Object { @{id=[string]$_.RawKind; name=('4 x 6 inch - ' + $_.PaperName)} })
+        } elseif ($request.action -eq 'job') {
+            $queue = $server.GetPrintQueue($request.printer)
+            try {
+                # A job disappearing is not evidence of successful physical output.
+                $job = @($queue.GetPrintJobInfoCollection() | Where-Object JobIdentifier -eq $request.jobId) | Select-Object -First 1
+                $result = 'unknown'
+                if ($null -ne $job) {
+                    if ($job.IsDeleted -or $job.IsDeleting) { $result='cancelled' }
+                    elseif ($job.IsCompleted -or $job.IsPrinted) { $result='completed' }
+                    elseif ($job.IsInError) { $result='stopped' }
+                    elseif ($job.IsPaused) { $result='held' }
+                    elseif ($job.IsPrinting) { $result='processing' }
+                    else { $result='queued' }
+                }
+            } finally { $queue.Dispose() }
+        } elseif ($request.action -eq 'test-media') {
+            # Pure classification check: no device is opened and no photo is submitted.
+            $paper = [System.Drawing.Printing.PaperSize]::new([string]$request.name, [int]$request.width, [int]$request.height)
+            $result = [MisrahPrint]::IsPhotoPaper($paper, [bool]$request.dnp)
+        } elseif ($request.action -in @('submit', 'check')) {
             if ($request.action -eq 'check') { $result = $true }
-            else { $result = [MisrahPrint]::Submit([string]$request.printer, [int]$request.media, [Convert]::FromBase64String($request.image)) }
+            else { $result = [MisrahPrint]::Submit([string]$request.printer, [int]$request.media, [Convert]::FromBase64String($request.image), $isDnp) }
         } else { throw 'Unknown Windows print operation.' }
         @{ result=$result } | ConvertTo-Json -Depth 8 -Compress
     } finally { $server.Dispose() }

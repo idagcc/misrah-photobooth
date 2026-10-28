@@ -23,6 +23,7 @@ def main():
     args = parser.parse_args()
     version = json.loads((ROOT / "package.json").read_text())["version"]
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    source_modified = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
     args.output.mkdir(parents=True, exist_ok=True)
     checksums = []
     with tempfile.TemporaryDirectory(prefix="misrah-build-") as temp:
@@ -53,6 +54,7 @@ def main():
                 (stage / launcher).write_bytes((ROOT / launcher).read_text().replace("\n", "\r\n").encode())
             (stage / "BUILD.json").write_text(json.dumps({
                 "version": version, "platform": platform, "revision": revision,
+                "sourceModified": source_modified,
                 "python": PYTHON_VERSION if platform == "windows" else "System Python 3.9+",
             }, indent=2) + "\n")
             archive_path = args.output / f"{name}.zip"

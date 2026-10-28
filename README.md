@@ -1,10 +1,10 @@
-# Misrah Studio — local photobooth v0.10
+# Misrah Studio — local photobooth v0.12
 
 A clean, touch-first photobooth for an Apple-silicon Mac mini with 16 GB unified memory. Guests choose a straight-facing heritage portrait, look at the camera, and print a keepsake. Everything runs on the booth computer. This prototype uses geometric face insertion and local tone correction, rather than a cloud or neural identity-swap service.
 
 ## Misrah branding
 
-Finished portraits include the supplied official Arabic/English Misrah logo at the top right and the Instagram icon with `MISRAH_AE` at the top left, following the supplied reference. No Nahj logo is included. The warm cream 4 × 6 layout preserves the entire source photograph without cropping. The result preview, saved copy, local photo archive and both printing routes use the same branding composition. Exports are at least 1200 × 1800 pixels; lower-resolution source photographs are fitted rather than given additional image detail. The supplied black logo is used without recolouring or distortion, with a visible width of at least 312 pixels and clear space.
+Finished portraits include the supplied official Arabic/English Misrah logo at the top right and the Instagram icon with `MISRAH_AE` at the top left, following the supplied reference. No Nahj logo is included. The warm cream 4 × 6 layout preserves the entire source photograph without cropping. The result preview, saved copy, local photo archive and both printing routes use the same branding composition. The two included frames export at 1600 × 2400 pixels (400 dpi at 4 × 6 inches); custom artwork exports between 1200 × 1800 and 1600 × 2400 pixels. Both new frames were restored with the built-in image tool and resampled to twice the supplied dimensions: falconer 2172 × 2896, palm weaver 2048 × 3072. The supplied black logo is used without recolouring or distortion, with a visible width of at least 312 pixels and clear space.
 
 ## Locked landscape screen
 
@@ -20,9 +20,9 @@ Camera access requires this local address; opening `index.html` directly will no
 
 ## Guest flow
 
-**Touch to start → choose a portrait → lights → look straight ahead → automatic capture → print or retake.**
+**Touch to start → choose a portrait → lights → look straight ahead → automatic capture → three-second preparation → print or retake.**
 
-The three supplied final portraits are enabled initially: The basket weaver, The pearl diver and The sailor. The welcome screen uses the supplied basket-weaver artwork. The female portrait keeps the original gold face plate as foreground; only its two eye openings reveal the guest. The male portraits fill their complete oval face openings. Large cards start capture with one tap, without a second scene preview or exposed settings. A single camera view gives short, actionable guidance. Retake keeps the chosen portrait; Choose another portrait clears the photograph. Finish clears the photograph and print image for the next guest. After two idle minutes, the session clears, with a warning during the final 20 seconds. Processing, printing and the open admin panel suspend that timer.
+The two October 28 portraits are enabled initially: The palm weaver and The falconer. They replace the previous built-in frames. The welcome screen uses the new palm-weaver artwork. Existing printer settings, custom portraits, saved photos and historical usage remain available. The female portrait keeps the original gold face plate as foreground; only its two eye openings reveal the guest. The falconer fills the complete oval face opening. Large cards start capture with one tap, without a second scene preview or exposed settings. A single camera view gives short, actionable guidance. Retake keeps the chosen portrait; Choose another portrait clears the photograph. Finish clears the photograph and print image for the next guest. After two idle minutes, the session clears, with a warning during the final 20 seconds. Processing, printing and the open admin panel suspend that timer.
 
 On the `experiment` branch, MediaPipe maps the guest's face live. A smoothed outline follows their face, eyes, nose and mouth; guests can stand off-centre as long as their whole face is visible and large enough for a clear photograph. After the lights, two clear, straight-facing observations start a visible **3 → 2 → 1** countdown. **The shutter fires when 1 appears**, two seconds after 3 starts. The counter sits in a corner so guests can see their face and make their pose. The captured moment remains visible briefly before processing.
 
@@ -30,7 +30,7 @@ The countdown runs on a fixed clock, without requiring a continuously steady pos
 
 **Take picture now** is available as soon as one complete, front-facing face is detected, even while light or focus advice is showing. It takes the measured current frame immediately. The booth crops that frame around the face and automatically positions, sizes and rotates it into the selected portrait using the eyes. The captured pixels and landmarks stay paired even when the next camera frame is being analysed. Outline smoothing and a brief guidance delay affect display only; they never supply stale landmarks to the shutter.
 
-The three final artworks have fixed, calibrated face/eye openings because their blank faces cannot be detected by a face model. Original supplied pixels remain unchanged outside those openings. The older generated scenes remain diagnostic fixtures in the preparation studio, and bundled test guests are synthetic. Additional admin imports still require a visible, detectable frontal face; new blank-face artwork needs its own opening calibration.
+Both artworks have calibrated face/eye openings because their blank faces cannot be detected by a face model. A subtle fixed monochrome grain filter covers the finished photograph, including the inserted face, and is included in the preview, archive, download and print. After capture, an animated “Your photo is getting ready” screen counts down 3–2–1 for at least three seconds while face preparation and saving run. If preparation takes longer, the screen remains until it finishes; reduced motion keeps the same timing without rotation. The older generated scenes remain diagnostic fixtures in the preparation studio, and bundled test guests are synthetic. Additional admin imports still require a visible, detectable frontal face; new blank-face artwork needs its own opening calibration.
 
 ## Hidden admin panel
 
@@ -160,3 +160,13 @@ Windows direct printing uses the installed Windows PowerShell 5.1, .NET desktop 
 6. Close admin with **Esc**. Capture one portrait and tap **Print my photo**. Confirm one complete 4 × 6 print, orientation, borders and colour before starting the event.
 
 If the DNP queue is absent, confirm that Windows can print to it and refresh the printer list. If no 4 × 6 size appears, check the manufacturer’s driver and paper settings; the booth lists sizes reported by that driver. After an uncertain submission, check the Windows queue before requesting another print.
+
+## v0.12 Windows DNP page-size correction
+
+The old Windows bridge accepted only 4 × 6 inch dimensions within 0.08 inch. The DNP RX1 driver documents a (6x4) print area of 156.1 × 105.0 mm, approximately 6.15 × 4.13 inches including bleed, which that check rejected. Both paper listing and job submission now use the same validator: DNP drivers allow up to 0.18 inch of bleed per dimension, in either orientation. Other drivers retain the previous tolerance. Strips, larger sheets and multi-photo (6x4)x2 layouts are excluded.
+
+On the Windows booth, open admin with F2, choose Direct to selected printer, select the DNP queue, choose its single-photo **(6x4)** or **PR (4x6)** size, and save. The actual driver paper object is passed to Windows. The app rotates the portrait for a landscape driver page. A physical print with the connected printer is still required to verify the installed driver and loaded media.
+
+Source: [DNP RX1 Windows driver manual, print area](https://www.ansystem.com/GlobDownloads/DNP/Drivers/RX1_RX1HS/RX1_RX1HS_Driver_V1.23_Instruction_Win_11_En.pdf).
+
+Update by extracting the new ZIP completely into a new writable folder. To keep this booth’s settings and history, stop the old app, then copy its `.local-data` and `photos` folders into the new app folder before launching. The release contains no guest photographs or local settings.

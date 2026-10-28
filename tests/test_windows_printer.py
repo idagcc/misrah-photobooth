@@ -15,6 +15,22 @@ from test_booth_service import image
 
 
 class WindowsPrinterTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'win32', 'Requires the Windows PowerShell/.NET print bridge')
+    def test_real_bridge_accepts_dnp_bleed_but_rejects_other_sizes_and_multi_layouts(self):
+        for name, width, height, dnp, expected in [
+            ('4x6', 400, 600, False, True),
+            ('(6x4)', 615, 413, True, True),
+            ('PR (4x6)', 413, 615, True, True),
+            ('(6x4)', 615, 413, False, False),
+            ('(6x4) x 2', 615, 413, True, False),
+            ('6x4x2', 615, 413, True, False),
+            ('6x2', 600, 200, True, False),
+            ('6x8', 615, 812, True, False),
+            ('A4', 827, 1169, True, False),
+        ]:
+            with self.subTest(name=name, dnp=dnp):
+                self.assertEqual(WindowsPrinter().request('test-media', name=name, width=width, height=height, dnp=dnp), expected)
+
     @patch('windows_printer.subprocess.run')
     def test_names_are_data_and_jpeg_is_passed_without_a_temporary_photo(self, run):
         run.return_value = SimpleNamespace(returncode=0, stdout='{"result":123}', stderr='')

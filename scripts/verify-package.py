@@ -14,6 +14,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix="Misrah package test ") as temp:
         with zipfile.ZipFile(sys.argv[1]) as archive:
             assert archive.testzip() is None
+            assert not any(name.endswith('/assets/approved/' + old) for name in archive.namelist()
+                           for old in ('basket-weaver.png', 'pearl-diver.png', 'sailor.png'))
             assert not any(part in {".local-data", "photos", ".git", "node_modules"}
                            for name in archive.namelist() for part in Path(name).parts)
             archive.extractall(temp)
@@ -39,6 +41,12 @@ def main():
             else:
                 raise RuntimeError("Packaged server did not start")
             assert bootstrap["token"]
+            assert [item['id'] for item in bootstrap['templates']] == ['frontal-weaver', 'misrah-falconer']
+            for filename, dimensions in [('palm-weaver.png', (2048, 3072)), ('falconer.png', (2172, 2896))]:
+                with urllib.request.urlopen(base + '/assets/approved/' + filename, timeout=5) as response:
+                    header = response.read()[:24]
+                    assert header[:8] == b'\x89PNG\r\n\x1a\n'
+                    assert (int.from_bytes(header[16:20], 'big'), int.from_bytes(header[20:24], 'big')) == dimensions
             for asset in ["landscape.html", "index.html", "landscape.js", "approved-portraits.js", "models/face_landmarker.task"]:
                 with urllib.request.urlopen(base + "/" + asset, timeout=5) as response:
                     assert response.status == 200 and response.read()

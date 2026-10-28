@@ -13,20 +13,34 @@ page.on('pageerror', error => errors.push(error.message));
 try {
   await page.goto(`${base}/?camera=sample`);
   await page.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
+  await page.evaluate(() => {
+    window.preparationTimes = [];
+    new MutationObserver(records => {
+      for (const record of records) if (record.attributeName === 'data-step') {
+        const step = document.body.dataset.step;
+        if (step === 'processing') window.preparationTimes.push({ started: performance.now() });
+        if (step === 'result') window.preparationTimes.at(-1).elapsed = performance.now() - window.preparationTimes.at(-1).started;
+      }
+    }).observe(document.body, { attributes: true, attributeFilter: ['data-step'] });
+  });
   await page.screenshot({ path: new URL('welcome.png', out).pathname });
   // Enter the existing capture path with a fictional bundled guest; no physical camera or printer.
-  for (const [scene, name] of [['frontal-weaver', 'weaver'], ['frontal-pearl-trader', 'pearl-diver'], ['misrah-sailor', 'sailor']]) {
+  for (const [scene, name] of [['frontal-weaver', 'weaver'], ['misrah-falconer', 'falconer']]) {
     await page.locator('#touch-start').click();
     await page.locator(`#${scene}`).click();
     await page.waitForFunction(() => document.body.dataset.step === 'lights');
     // Cancel camera acquisition, preserving the selected scene.
     await page.locator('#cancel-sequence').click();
     await page.locator('#photo-upload').setInputFiles(new URL(`public/assets/frontal/frontal-guest-${scene === 'frontal-weaver' ? 'woman' : 'man'}.png`, root).pathname);
+    await page.locator('#processing-dialog').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#processing-title').textContent(), 'Your photo is getting ready');
+    await page.screenshot({ path: new URL(`${name}-processing.png`, out).pathname });
     await page.waitForFunction(() => document.body.dataset.step === 'result', null, { timeout: 45000 });
+    assert.ok(await page.evaluate(() => window.preparationTimes.at(-1).elapsed >= 2990), 'Never reveal the result before three seconds');
     assert.equal(await page.locator('#portrait').isVisible(), false);
     assert.equal(await page.locator('#branded-portrait').isVisible(), true);
     const dimensions = await page.locator('#branded-portrait').evaluate(canvas => [canvas.width, canvas.height]);
-    assert.deepEqual(dimensions, [1200, 1800]);
+    assert.deepEqual(dimensions, [1600, 2400]);
     // Compare the actual production composite with the original artwork, outside its calibrated openings.
     const layers = await page.evaluate(async scene => {
       const { APPROVED_PORTRAITS, prepareApprovedPortrait } = await import('./approved-portraits.js');
@@ -36,17 +50,20 @@ try {
       const source = make(image.width, image.height), c = source.getContext('2d'); c.drawImage(image, 0, 0);
       const original = c.getImageData(0, 0, image.width, image.height).data;
       const actual = document.getElementById('portrait').getContext('2d').getImageData(0, 0, image.width, image.height).data;
+      const { applyPhotoGrain } = await import('./photo-grain.js');
+      applyPhotoGrain(c, image.width, image.height);
+      const grained = c.getImageData(0, 0, image.width, image.height).data;
       const mask = frame.mask.getContext('2d').getImageData(0, 0, image.width, image.height).data;
       let outsideChanges = 0, visibleChanges = 0;
       for (let i = 0; i < original.length; i += 4) {
-        const changed = actual[i] !== original[i] || actual[i + 1] !== original[i + 1] || actual[i + 2] !== original[i + 2];
+        const changed = actual[i] !== grained[i] || actual[i + 1] !== grained[i + 1] || actual[i + 2] !== grained[i + 2];
         if (changed && mask[i + 3] === 0) outsideChanges++;
         if (changed && mask[i + 3] === 255) visibleChanges++;
       }
       const alpha = (x, y) => mask[(y * image.width + x) * 4 + 3];
       return { outsideChanges, visibleChanges, plate: scene !== 'frontal-weaver' ||
-        (alpha(560, 400) === 0 && alpha(520, 465) === 0 && alpha(600, 465) === 0 && alpha(510, 360) === 0 &&
-         alpha(510, 400) === 255 && alpha(611, 400) === 255) };
+        (alpha(1046, 958) === 0 && alpha(974, 1080) === 0 && alpha(1120, 1080) === 0 && alpha(970, 860) === 0 &&
+         alpha(970, 958) === 255 && alpha(1128, 958) === 255) };
     }, scene);
     assert.equal(layers.outsideChanges, 0, `${scene}: preserve all artwork outside the openings`);
     assert.ok(layers.visibleChanges > 2000, `${scene}: guest pixels replace the blank openings`);
@@ -57,8 +74,8 @@ try {
     await page.evaluate(() => { window.printCalls = 0; window.print = () => { window.printCalls++; window.dispatchEvent(new Event('afterprint')); }; });
     await page.locator('#print-photo').click();
     await page.waitForFunction(() => window.printCalls === 1);
-    assert.equal(await page.locator('#print-image').evaluate(img => img.naturalWidth), 1200);
-    assert.equal(await page.locator('#print-image').evaluate(img => img.naturalHeight), 1800);
+    assert.equal(await page.locator('#print-image').evaluate(img => img.naturalWidth), 1600);
+    assert.equal(await page.locator('#print-image').evaluate(img => img.naturalHeight), 2400);
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#download').click();
     await (await downloadPromise).saveAs(new URL(`${name}-download.png`, out).pathname);
@@ -68,8 +85,9 @@ try {
   }
   // Exercise real automatic capture with the synthetic video source and an approved blank-face template.
   await page.locator('#touch-start').click();
-  await page.locator('#misrah-sailor').click();
+  await page.locator('#misrah-falconer').click();
   await page.waitForFunction(() => document.body.dataset.step === 'result', null, { timeout: 60000 });
+  assert.ok(await page.evaluate(() => window.preparationTimes.at(-1).elapsed >= 2990), 'Automatic capture also keeps the three-second loading screen');
   assert.equal(await page.locator('#print-photo').isEnabled(), true);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -101,5 +119,5 @@ try {
   await page.waitForFunction(() => document.getElementById('welcome-status').textContent.includes('could not start'));
   assert.equal(await page.locator('#touch-start').isDisabled(), true);
   assert.deepEqual(errors, []);
-  console.log('PASS all three approved guest scenes, exact foreground preservation including gold plate, automatic simulated-camera capture, branded preview, PNG download, 4x6 browser print, reset clearing, custom aspect ratio preservation, mobile layout and missing-logo startup block.');
+  console.log('PASS both approved guest scenes, grain-matched foreground preservation including gold plate, automatic simulated-camera capture, branded preview, PNG download, 4x6 browser print, reset clearing, custom aspect ratio preservation, mobile layout and missing-logo startup block.');
 } finally { await browser.close(); }

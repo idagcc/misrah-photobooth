@@ -10,7 +10,7 @@ brandReady.catch(() => {});
 
 export function brandedPortrait(portrait, logo, canvas = document.createElement('canvas')) {
   // A fixed 4 x 6 layout, at least 300 dpi, also accommodates custom artwork without cropping.
-  canvas.width = Math.max(1200, portrait.width, Math.ceil(portrait.height / 1.5));
+  canvas.width = Math.min(1600, Math.max(1200, portrait.width, Math.ceil(portrait.height / 1.5)));
   canvas.height = Math.round(canvas.width * 1.5);
   const c = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
   c.fillStyle = '#f3e8d5'; c.fillRect(0, 0, w, h);

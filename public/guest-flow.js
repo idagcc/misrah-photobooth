@@ -62,6 +62,21 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
     if (!processingDialog.open) processingDialog.showModal();
     if (!reducedMotion) processingVideo.play().catch(() => {});
     $('processing-title').focus();
+    const countdown = $('processing-countdown'), started = performance.now();
+    processingDialog.dataset.preparing = 'true';
+    countdown.textContent = '3';
+    return new Promise(resolve => {
+      const tick = () => {
+        const remaining = 3000 - (performance.now() - started);
+        countdown.textContent = String(Math.max(0, Math.ceil(remaining / 1000)));
+        if (remaining > 0) { setTimeout(tick, Math.min(remaining, 100)); return; }
+        processingDialog.dataset.preparing = 'false';
+        $('processing-caption').textContent = 'Adding the finishing touches…';
+        resolve();
+      };
+      $('processing-caption').textContent = 'A timeless keepsake, made just for you.';
+      setTimeout(tick, 100);
+    });
   }
   async function reset(destination) {
     if (archiveBlocked()) { archiveState(); return false; }

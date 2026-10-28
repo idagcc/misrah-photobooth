@@ -89,7 +89,7 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause }) {
     $('admin-media').replaceChildren(new Option('Select 4 × 6 inch paper', ''), ...value.media.map(p => new Option(p.name, p.id)));
     $('admin-media').value = value.media.some(p => p.id === previous) ? previous : value.media[0]?.id || '';
     const p = value.selected, node = $('admin-printer-status');
-    node.textContent = value.error ? `Print status unavailable: ${value.error}` : !p ? 'No printer selected. Install or choose a printer to see its status.' : `${p.name} · ${p.fault || p.state}${p.message && p.message !== p.fault ? ` · ${p.message}` : ''}`;
+    node.textContent = value.error ? `Print status unavailable: ${value.error}` : !p ? 'No printer selected. Install or choose a printer to see its status.' : !value.media.length ? `${p.name} · No supported 4 × 6 size found. Install the manufacturer driver and check its paper settings.` : `${p.name} · ${p.fault || p.state}${p.message && p.message !== p.fault ? ` · ${p.message}` : ''}`;
     node.dataset.fault = String(Boolean(value.error || p?.blocked));
     mode();
   }

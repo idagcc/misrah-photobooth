@@ -16,7 +16,7 @@
   <header class="guest-header"><a class="guest-brand" href="./" aria-label="Misrah home"><img class="official-brand" src="assets/brand/misrah-logo.png" alt="Misrah"></a><nav class="guest-progress" aria-label="Photo experience"><span data-progress="choose">01 <b>Choose</b></span><i></i><span data-progress="camera">02 <b>Capture</b></span><i></i><span data-progress="result">03 <b>Print</b></span></nav></header>
   <section id="welcome-step" class="welcome-screen" aria-labelledby="welcome-title">
     <div class="welcome-copy"><p class="eyebrow">THE MISRAH PHOTO EXPERIENCE</p><h1 id="welcome-title" tabindex="-1">Your face.<br>A timeless story.</h1><p class="welcome-description">Choose a portrait. Look at the camera.<br>Take home a little piece of history.</p><button id="touch-start" class="button primary" disabled>Touch to start <span aria-hidden="true">→</span></button><p id="welcome-status" role="status">Preparing your experience…</p><div class="welcome-how"><span>1 &nbsp; Choose</span><span>2 &nbsp; Capture</span><span>3 &nbsp; Print</span></div></div>
-    <div class="welcome-gallery" aria-hidden="true"><figure class="welcome-photo"><img src="assets/approved/basket-weaver.png" alt=""><figcaption>The heritage collection <em>Misrah</em></figcaption></figure></div>
+    <div class="welcome-gallery" aria-hidden="true"><figure class="welcome-photo"><img src="assets/approved/palm-weaver-thumb.jpg" alt=""><figcaption>The heritage collection <em>Misrah</em></figcaption></figure></div>
     <p class="welcome-footer">YOUR PORTRAIT. YOUR KEEPSAKE. <span>Private, and made right here.</span></p>
   </section>
   <main class="guest-main" hidden>
@@ -25,7 +25,7 @@
       <section class="guest-photograph" aria-label="Your portrait">
         <figure class="photo-print">
           <div id="stage" class="guest-stage"><canvas id="portrait" width="1024" height="1536" role="img" aria-label="Selected heritage scene"></canvas><canvas id="branded-portrait" width="1200" height="1800" role="img" aria-label="Your finished portrait with Misrah logo and Instagram MISRAH_AE"></canvas><div id="stage-empty" hidden></div><div id="busy" class="busy" hidden><span class="spinner"></span><span id="busy-label">Preparing your portrait…</span></div></div>
-          <figcaption><span id="photo-caption">The basket weaver</span><span class="print-signature">Misrah</span></figcaption>
+          <figcaption><span id="photo-caption">The palm weaver</span><span class="print-signature">Misrah</span></figcaption>
         </figure>
         <p id="photo-context" class="photo-context">SCENE PREVIEW</p>
       </section>
@@ -33,9 +33,8 @@
         <div id="choose-step">
           <p class="step-label">01 — CHOOSE A PORTRAIT</p><h2>Choose a portrait.</h2><p class="scene-intro">Straight-facing portraits, made for you.</p>
 <div id="scene-list" class="scene-list">
-          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/approved/basket-weaver.png" alt="Basket weaver with traditional gold face plate"><span><strong>The basket weaver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
-          <button id="frontal-pearl-trader" class="frame-card" disabled><img src="assets/approved/pearl-diver.png" alt="Pearl diver with face opening"><span><strong>The pearl diver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
-          <button id="misrah-sailor" class="frame-card" disabled><img src="assets/approved/sailor.png" alt="Sailor with face opening"><span><strong>The sailor</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
+          <button id="frontal-weaver" class="frame-card" disabled><img src="assets/approved/palm-weaver-thumb.jpg" alt="Palm weaver with traditional gold face plate"><span><strong>The palm weaver</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
+          <button id="misrah-falconer" class="frame-card" disabled><img src="assets/approved/falconer-thumb.jpg" alt="Falconer with face opening"><span><strong>The falconer</strong><small>Tap to take your photo</small></span><span class="check" hidden>✓</span></button>
         </div>
           <button id="open-camera" class="button primary guest-camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></svg>Use selected template<span aria-hidden="true">↗</span></button>
           <p class="camera-note">Your photo is taken automatically. Just look straight ahead.</p>
@@ -111,7 +110,7 @@
     <div id="sample-controls" class="sample-controls" hidden><label>Test person <select id="sample-person"><option value="frontal-guest-woman">Generated woman</option><option value="frontal-guest-man">Generated man</option><option value="frontal-guest-bearded">Generated bearded man</option><option value="reference">Scene's original face</option></select></label><label>Simulated condition <select id="sample-condition"><option value="good">Clear & steady</option><option value="dark">Too dark</option><option value="blur">Out of focus</option><option value="motion">Moving</option><option value="left">Face on left</option><option value="right">Face on right</option><option value="multiple">Two faces</option><option value="no-face">No face</option></select></label><p>This is a simulated stream from the selected test portrait. Generated people are fictional; no webcam is used.</p></div>
     <p id="live-telemetry" class="live-telemetry">Waiting for the camera</p>
   </dialog>
-  <dialog id="processing-dialog" aria-labelledby="processing-title"><div class="processing-inner"><video id="processing-video" src="assets/lights.mp4" loop muted playsinline preload="metadata" aria-hidden="true"></video><div><span class="processing-mark" aria-hidden="true">✧</span><p class="eyebrow">A LITTLE PHOTO MAGIC</p><h2 id="processing-title" tabindex="-1">Making your moment.</h2><p>Preparing your heritage portrait…</p></div></div></dialog>
+  <dialog id="processing-dialog" aria-labelledby="processing-title"><div class="processing-inner"><video id="processing-video" src="assets/lights.mp4" loop muted playsinline preload="metadata" aria-hidden="true"></video><div><span class="processing-loader" aria-hidden="true"><span class="processing-mark">✧</span></span><p class="eyebrow">A LITTLE PHOTO MAGIC</p><h2 id="processing-title" tabindex="-1">Your photo is getting ready</h2><p id="processing-caption">A timeless keepsake, made just for you.</p><span id="processing-countdown" class="processing-countdown" aria-hidden="true">3</span><span class="processing-track" aria-hidden="true"></span></div></div></dialog>
   <div id="idle-notice" class="idle-notice" hidden role="status"><span>Still here? Your session ends in <b id="idle-seconds">20</b>s.</span><button id="keep-session" class="button secondary">Keep my session</button></div>
   <div id="print-sheet" aria-hidden="true"><img id="print-image" alt="Your Misrah portrait"></div>
   <dialog id="help-dialog"><div class="dialog-heading"><h2>A portrait in three steps.</h2><button id="close-help" class="icon-button" aria-label="Close help">×</button></div><ol class="help-steps"><li>Choose a scene.</li><li>Open the camera and look straight ahead.</li><li>Take your picture and save your portrait.</li></ol></dialog>

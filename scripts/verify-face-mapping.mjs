@@ -40,8 +40,8 @@ try {
   const cases = [
     ['frontal-guest-woman', 'frontal-weaver', 'left'],
     ['frontal-guest-woman', 'frontal-weaver', 'right'],
-    ['frontal-guest-man', 'frontal-pearl-trader', 'left'],
-    ['frontal-guest-bearded', 'frontal-pearl-trader', 'right']
+    ['frontal-guest-man', 'misrah-falconer', 'left'],
+    ['frontal-guest-bearded', 'misrah-falconer', 'right']
   ];
   for (const [person, template, position] of cases) {
     await page.evaluate(({ person, position }) => {

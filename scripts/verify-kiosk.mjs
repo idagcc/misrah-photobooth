@@ -34,7 +34,7 @@ try {
   assert.equal(await page.locator('body').getAttribute('data-step'), 'welcome');
   await shot('welcome');
   await page.locator('#touch-start').click();
-  assert.equal(await page.locator('#scene-list .frame-card:enabled').count(), 3);
+  assert.equal(await page.locator('#scene-list .frame-card:enabled').count(), 2);
   await shot('templates');
   // Cancelling while camera acquisition and the light clip overlap must not capture later.
   await page.locator('#frontal-weaver').click();

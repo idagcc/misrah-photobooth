@@ -31,7 +31,7 @@ try {
   const welcomeBounds = await frame.locator('.welcome-screen').boundingBox();
   assert.ok(welcomeBounds.width >= 1800, 'Welcome should use the display width');
   await frame.locator('#touch-start').click();
-  assert.equal(await frame.locator('#scene-list .frame-card:enabled').count(), 3);
+  assert.equal(await frame.locator('#scene-list .frame-card:enabled').count(), 2);
   const cards = await frame.locator('#scene-list .frame-card').evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
   assert.ok(cards.every(top => top === cards[0]));
   const choices = await frame.locator('#scene-list').boundingBox();
@@ -39,17 +39,17 @@ try {
   assert.ok(choices.y + choices.height <= 1080, 'All portrait cards must fit on screen');
   assert.equal(await frame.evaluate(() => document.documentElement.scrollHeight > innerHeight), false, 'Portrait selection must fit without scrolling');
   await page.screenshot({ path: new URL('choices-1920x1080.png', out).pathname });
-  await frame.locator('#misrah-sailor').click();
+  await frame.locator('#misrah-falconer').click();
   await frame.waitForFunction(() => document.body.dataset.step === 'result', null, { timeout: 60000 });
   assert.deepEqual(await frame.evaluate(() => [innerWidth, innerHeight]), [1920,1080]);
   assert.equal(await frame.locator('#branded-portrait').isVisible(), true);
-  assert.deepEqual(await frame.locator('#branded-portrait').evaluate(c => [c.width,c.height]), [1200,1800]);
+  assert.deepEqual(await frame.locator('#branded-portrait').evaluate(c => [c.width,c.height]), [1600,2400]);
   assert.equal(await frame.evaluate(() => document.documentElement.scrollHeight > innerHeight), false, 'Result screen must fit without scrolling');
   await page.screenshot({ path: new URL('result-1920x1080.png', out).pathname });
   await frame.evaluate(() => { window.printCalled = false; window.print = () => { window.printCalled = true; window.dispatchEvent(new Event('afterprint')); }; });
   await frame.locator('#print-photo').click();
   await frame.waitForFunction(() => window.printCalled);
-  assert.deepEqual(await frame.locator('#print-image').evaluate(image => [image.naturalWidth,image.naturalHeight]), [1200,1800]);
+  assert.deepEqual(await frame.locator('#print-image').evaluate(image => [image.naturalWidth,image.naturalHeight]), [1600,2400]);
   const portraitBounds = await frame.locator('#branded-portrait').boundingBox();
   assert.ok(portraitBounds.height >= 680, 'Finished portrait should fill more of the display');
   await frame.locator('#finish-session').click();
@@ -70,7 +70,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await frame.locator('#admin-dialog').evaluate(dialog => dialog.open), false);
   assert.deepEqual(errors, []);
-  const report = { resolution: '1920x1080', aspectRatio: '16:9', testedViewports: 5, automaticSampleCapture: 'passed', portraitPrint: '1200x1800', adminShortcut: 'passed', errors };
+  const report = { resolution: '1920x1080', aspectRatio: '16:9', testedViewports: 5, automaticSampleCapture: 'passed', portraitPrint: '1600x2400', adminShortcut: 'passed', errors };
   await writeFile(new URL('verification.json', out), JSON.stringify(report, null, 2));
-  console.log('PASS fixed 1920x1080 viewport across five display sizes, three landscape choices, automatic capture, portrait print image and admin keyboard access.');
+  console.log('PASS fixed 1920x1080 viewport across five display sizes, two landscape choices, automatic capture, portrait print image and admin keyboard access.');
 } finally { await browser.close(); }

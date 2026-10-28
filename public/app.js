@@ -6,6 +6,7 @@ import { BoothClient } from './booth-client.js';
 import { createAdminPanel } from './admin-panel.js';
 import { brandReady, brandedPortrait } from './print-branding.js';
 import { APPROVED_PORTRAITS, prepareApprovedPortrait } from './approved-portraits.js';
+import { applyPhotoGrain } from './photo-grain.js';
 
 const $ = id => document.getElementById(id);
 const guestExperience = document.body.dataset.experience === 'guest';
@@ -400,6 +401,7 @@ function render() {
     ctx.save(); ctx.strokeStyle = '#eddb8a'; ctx.lineWidth = Math.max(2, w / 500); ctx.setLineDash([w / 100, w / 150]);
     const b = frame.bounds; ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.restore();
   }
+  if (source && state.view === 'result') applyPhotoGrain(ctx, w, h);
   if (guestExperience && source && brandLogo) finishedPortrait();
 }
 
@@ -447,7 +449,9 @@ async function setSource(image, label, measuredDetection = null) {
   $('source-empty').hidden = true; sourceCanvas.hidden = false; $('source-tag').hidden = false; $('source-tag').textContent = label;
   $('faces-section').hidden = true; controlsEnabled(false); $('stage-empty').hidden = true; busy(true, guestExperience ? 'Preparing your portrait…' : 'Finding your face…'); status(guestExperience ? 'Preparing your portrait…' : 'Finding your face, right here on this device…'); updateSourcePreview();
   if (guestExperience) $('open-camera').disabled = true;
-  if (guestExperience) { guestStep('processing'); await guestFlow?.processing(); }
+  // Run face preparation during the animation; reveal only once both have finished.
+  let processingReady = Promise.resolve();
+  if (guestExperience) { guestStep('processing'); processingReady = guestFlow?.processing() || processingReady; }
   let guestPortraitReady = false, archiveWarning = '';
   try {
     await Promise.all([engineReady, templateReady]);
@@ -477,6 +481,7 @@ async function setSource(image, label, measuredDetection = null) {
     if (guestExperience) { state.source = null; state.rawSource = null; state.faces = []; state.qualities = []; state.poses = []; state.landmarks = []; }
     status(guestExperience ? (error.message.startsWith('Please take') ? error.message : 'Your portrait could not be prepared. Please try taking another photo.') : 'Automatic alignment is unavailable. Your photo is loaded; use the size and position controls to fit your face manually.', true);
   } finally {
+    await processingReady;
     if (generation === state.generation) {
       controlsEnabled(guestExperience ? guestPortraitReady : Boolean(state.frame)); busy(false); syncSettings(); setView('result');
       if (guestExperience) { $('open-camera').disabled = engineFailed; guestStep(guestPortraitReady ? 'result' : 'choose'); }
