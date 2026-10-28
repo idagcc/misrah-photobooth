@@ -1,4 +1,4 @@
-# Misrah Studio — local photobooth v0.13
+# Misrah Studio — local photobooth v0.13.1
 
 A clean, touch-first photobooth for an Apple-silicon Mac mini with 16 GB unified memory. Guests choose a straight-facing heritage portrait, look at the camera, and print a keepsake. Everything runs on the booth computer. This prototype uses geometric face insertion and local tone correction, rather than a cloud or neural identity-swap service.
 
@@ -180,3 +180,9 @@ The falconer starts 8% smaller to give more room around the face; the weaver ret
 ## Welcome portrait previews
 
 The home screen automatically shows each available portrait for four seconds, with its name and a gentle transition. Only portraits currently shown to guests appear. Tap a dot to choose a preview, or use Pause previews / Play previews. The rotation pauses while the pointer or keyboard focus is over the preview, stops after the guest starts, and stops when the browser is hidden. Reduced-motion mode starts paused and uses still transitions; Play previews can opt into rotation. The touch-to-start button and the page layout stay fixed.
+
+## v0.13.1 Windows print-status correction
+
+Windows can remove a job from its queue after printing, and its Deleted/Deleting flags do not by themselves mean the print was cancelled. The app now records these accepted jobs as **Sent to printer**, instead of showing “Your print job is unknown” or a false cancellation warning. The guest sees **Your photo was sent to the printer. Please collect it.**
+
+A removed job is no longer polled, and it is not counted as a confirmed physical print or queue completion. Existing accepted jobs previously recorded as unknown recover when the next status check finds they have left the Windows queue. Actual printer faults, paused/error jobs, unavailable status queries and uncertain submission timeouts still request attendant attention. No print is automatically retried.

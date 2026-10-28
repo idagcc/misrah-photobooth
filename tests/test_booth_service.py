@@ -173,6 +173,55 @@ class BoothTests(unittest.TestCase):
         self.service.status()
         self.assertEqual(self.service.stats()['totals']['queued'], 1)
 
+    def test_unlisted_accepted_job_is_terminal_without_false_completion_or_retry(self):
+        key = str(uuid.uuid4())
+        self.service.print_photo(key, 'frontal-weaver', image())
+        self.printer.state = 'unlisted'
+        with patch.object(self.printer, 'job', wraps=self.printer.job) as poll:
+            status = self.service.status()
+            self.assertEqual(status['jobs'][0]['state'], 'unlisted')
+            self.assertIn('no longer listed', status['jobs'][0]['message'])
+            self.service.status()
+            self.assertEqual(poll.call_count, 1)
+        self.assertEqual(self.service.print_photo(key, 'frontal-weaver', image())['state'], 'unlisted')
+        self.assertEqual(self.printer.calls, 1)
+        totals = self.service.stats()['totals']
+        self.assertEqual(totals['queued'], 1)
+        self.assertEqual(totals['completed'], 0)
+        self.assertEqual(totals['errors'], 0)
+
+    def test_job_status_failure_is_distinct_from_successfully_looking_up_an_absent_job(self):
+        self.service.print_photo(str(uuid.uuid4()), 'frontal-weaver', image())
+        with patch.object(self.printer, 'job', side_effect=RuntimeError('Windows queue unavailable')):
+            status = self.service.status()
+        self.assertEqual(status['jobs'][0]['state'], 'unknown')
+        self.assertIn('status is unavailable', status['jobs'][0]['message'])
+        self.printer.state = 'unlisted'
+        recovered = self.service.status()['jobs'][0]
+        self.assertEqual(recovered['state'], 'unlisted')
+        self.assertNotIn('unavailable', recovered['message'])
+        self.assertEqual(self.printer.calls, 1)
+
+    def test_old_unknown_jobs_can_leave_the_polling_list_without_starving_new_jobs(self):
+        keys = [str(uuid.uuid4()) for _ in range(4)]
+        for key in keys:
+            self.service.print_photo(key, 'frontal-weaver', image())
+        self.service.db.execute("UPDATE jobs SET state='unknown'")
+        self.service.db.commit()
+        self.printer.state = 'unlisted'
+        self.service.status()
+        self.service.status()
+        self.assertTrue(all(job['state'] == 'unlisted' for job in self.service.stats()['jobs']))
+
+    def test_real_printer_fault_stays_visible_after_job_leaves_queue(self):
+        self.service.print_photo(str(uuid.uuid4()), 'frontal-weaver', image())
+        self.printer.state = 'unlisted'
+        self.printer.reason = 'media-empty-error'
+        status = self.service.status()
+        self.assertEqual(status['jobs'][0]['state'], 'unlisted')
+        self.assertTrue(status['selected']['blocked'])
+        self.assertIn('Paper', status['selected']['fault'])
+
     def test_timeout_is_unknown_and_is_not_retried(self):
         self.printer.timeout = True
         key = str(uuid.uuid4())

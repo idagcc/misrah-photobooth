@@ -159,7 +159,7 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
     $('admin-totals').replaceChildren(...Object.entries(labels).map(([key, label]) => { const card = element('div', '', 'admin-total'); card.append(element('strong', String(stats.totals[key])), element('span', label)); return card; }));
     $('admin-usage-rows').replaceChildren(...stats.templates.map(item => { const row = document.createElement('tr'); for (const key of ['name', 'selections', 'captures', 'requests', 'queued', 'completed', 'dialogs', 'errors']) row.append(element(key === 'name' ? 'th' : 'td', String(item[key]))); return row; }));
     const names = new Map(client.config.templates.map(t => [t.id, t.name]));
-    $('admin-jobs').replaceChildren(...stats.jobs.map(job => element('p', `${names.get(job.template) || job.template} · ${job.job_id ? `#${job.job_id} · ` : ''}${job.state} · ${job.at} UTC${job.message ? ` · ${job.message}` : ''}`)));
+    $('admin-jobs').replaceChildren(...stats.jobs.map(job => element('p', `${names.get(job.template) || job.template} · ${job.job_id ? `#${job.job_id} · ` : ''}${job.state === 'unlisted' ? 'Sent to printer' : job.state} · ${job.at} UTC${job.message ? ` · ${job.message}` : ''}`)));
     if (!stats.jobs.length) $('admin-jobs').textContent = 'No direct print jobs yet.';
   }
   async function storage() {

@@ -106,6 +106,7 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
     for (const id of navigation) $(id).disabled = true;
     try {
       if (client.config.settings.printMode === 'native' && !client.simulated) {
+        activePrintId = null;
         $('status').textContent = 'Sending your photo to the printer…';
         const result = await client.request('print', { id: crypto.randomUUID(), template: getTemplate(), image: printImage() }, 30000);
         if (result.state === 'failed' || result.state === 'unknown') throw new Error(result.message || 'Please ask an attendant to check the printer.');
@@ -162,6 +163,9 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
       const p = value.selected;
       const job = value.jobs?.find(item => item.id === activePrintId);
       const jobIssue = job && ['aborted', 'cancelled', 'stopped', 'held', 'unknown'].includes(job.state);
+      if (job?.state === 'unlisted' && p && !p.blocked && !value.error) {
+        $('status').textContent = 'Your photo was sent to the printer. Please collect it.';
+      }
       $('guest-print-alert').hidden = !value.error && p && !p.blocked && !jobIssue;
       $('guest-print-alert').textContent = p?.fault || (jobIssue ? `Your print job is ${job.state}. Please ask an attendant before printing again.` : !p || value.error ? 'The printer needs attention. Please ask an attendant.' : '');
     } catch { if (step === 'result') { $('guest-print-alert').textContent = 'Printer status is unavailable. Please ask an attendant.'; $('guest-print-alert').hidden = false; } }

@@ -15,6 +15,22 @@ from test_booth_service import image
 
 
 class WindowsPrinterTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'win32', 'Requires the Windows PowerShell print bridge')
+    def test_real_job_classifier_distinguishes_queue_removal_from_failures(self):
+        for job, expected in [
+            (None, 'unlisted'), ({}, 'queued'),
+            ({'IsPrinting': True}, 'processing'),
+            ({'IsPrinted': True}, 'completed'),
+            ({'IsCompleted': True, 'IsDeleting': True}, 'completed'),
+            ({'IsPrinted': True, 'IsDeleted': True}, 'completed'),
+            ({'IsDeleted': True}, 'unlisted'),
+            ({'IsDeleting': True}, 'unlisted'),
+            ({'IsInError': True, 'IsDeleted': True}, 'stopped'),
+            ({'IsPaused': True, 'IsDeleting': True}, 'held'),
+        ]:
+            with self.subTest(job=job):
+                self.assertEqual(WindowsPrinter().request('test-job-state', job=job), expected)
+
     @unittest.skipUnless(sys.platform == 'win32', 'Requires the Windows PowerShell/.NET print bridge')
     def test_real_bridge_accepts_dnp_bleed_but_rejects_other_sizes_and_multi_layouts(self):
         for name, width, height, dnp, expected in [

@@ -509,14 +509,18 @@ class BoothService:
         except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
             printers, chosen, media, error = [], None, [], str(exc)[:240]
         with self.lock:
-            jobs = [dict(row) for row in self.db.execute("SELECT * FROM jobs WHERE job_id IS NOT NULL AND state NOT IN ('completed','cancelled','aborted') ORDER BY rowid ASC LIMIT 3")] if include_jobs else []
+            jobs = [dict(row) for row in self.db.execute("SELECT * FROM jobs WHERE job_id IS NOT NULL AND state NOT IN ('completed','cancelled','aborted','unlisted') ORDER BY rowid ASC LIMIT 3")] if include_jobs else []
         for job in jobs:
             try:
                 state = self.printer.job(job["printer"], job["job_id"])
+                message = "Accepted by Windows; no longer listed in its print queue. Physical output is not confirmed." if state == "unlisted" else ""
                 with self.lock, self.db:
-                    self.db.execute("UPDATE jobs SET state=? WHERE id=?", (state, job["id"]))
-            except (OSError, RuntimeError, subprocess.SubprocessError):
-                pass
+                    self.db.execute("UPDATE jobs SET state=?, message=? WHERE id=?", (state, message, job["id"]))
+            except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+                state = job["state"] if job["state"] in ("held", "stopped") else "unknown"
+                message = "Print job status is unavailable. " + str(exc)[:190]
+                with self.lock, self.db:
+                    self.db.execute("UPDATE jobs SET state=?, message=? WHERE id=?", (state, message, job["id"]))
         with self.lock:
             recent = [dict(row) for row in self.db.execute("SELECT id, job_id, state, message FROM jobs ORDER BY rowid DESC LIMIT 12")] if include_jobs else []
         return {"printers": printers, "selected": chosen, "media": media, "error": error,

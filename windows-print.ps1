@@ -1,6 +1,16 @@
 $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+function Get-MisrahJobState($job) {
+    # Windows queues are not print history. Removed/absent jobs are not failures.
+    if ($null -eq $job) { return 'unlisted' }
+    if ($job.IsInError) { return 'stopped' }
+    if ($job.IsPaused) { return 'held' }
+    if ($job.IsCompleted -or $job.IsPrinted) { return 'completed' }
+    if ($job.IsDeleted -or $job.IsDeleting) { return 'unlisted' }
+    if ($job.IsPrinting) { return 'processing' }
+    return 'queued'
+}
 try {
     Add-Type -AssemblyName System.Drawing
     Add-Type -AssemblyName ReachFramework
@@ -120,18 +130,13 @@ public static class MisrahPrint {
         } elseif ($request.action -eq 'job') {
             $queue = $server.GetPrintQueue($request.printer)
             try {
-                # A job disappearing is not evidence of successful physical output.
+                # A successful lookup can omit a job that has already left the queue.
                 $job = @($queue.GetPrintJobInfoCollection() | Where-Object JobIdentifier -eq $request.jobId) | Select-Object -First 1
-                $result = 'unknown'
-                if ($null -ne $job) {
-                    if ($job.IsDeleted -or $job.IsDeleting) { $result='cancelled' }
-                    elseif ($job.IsCompleted -or $job.IsPrinted) { $result='completed' }
-                    elseif ($job.IsInError) { $result='stopped' }
-                    elseif ($job.IsPaused) { $result='held' }
-                    elseif ($job.IsPrinting) { $result='processing' }
-                    else { $result='queued' }
-                }
+                $result = Get-MisrahJobState $job
             } finally { $queue.Dispose() }
+        } elseif ($request.action -eq 'test-job-state') {
+            # Exercise the production classifier without a physical print job.
+            $result = Get-MisrahJobState $request.job
         } elseif ($request.action -eq 'test-media') {
             # Pure classification check: no device is opened and no photo is submitted.
             $paper = [System.Drawing.Printing.PaperSize]::new([string]$request.name, [int]$request.width, [int]$request.height)

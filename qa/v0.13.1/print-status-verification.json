@@ -1,0 +1,30 @@
+{
+  "acceptedThenUnlisted": true,
+  "explicitCompleted": true,
+  "warnedStates": [
+    "held",
+    "stopped",
+    "cancelled",
+    "aborted",
+    "unknown"
+  ],
+  "printerFaultsPreserved": true,
+  "uncertainty": [
+    {
+      "outcome": "unknown",
+      "messagePreserved": true
+    },
+    {
+      "outcome": "timeout",
+      "messagePreserved": true
+    }
+  ],
+  "calls": {
+    "native": 4,
+    "browser": 0,
+    "dialogs": 0,
+    "uniqueRequests": 4,
+    "unexpected": []
+  },
+  "errors": []
+}

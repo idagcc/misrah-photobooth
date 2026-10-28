@@ -1,4 +1,4 @@
-# Misrah Studio implementation — v0.13
+# Misrah Studio implementation — v0.13.1
 
 ## Guest and operator boundaries
 
@@ -137,3 +137,15 @@ The operator-only Face fit tab provides a 75–115% slider, portrait selection, 
 Unit checks cover default/override selection, eye-midpoint anchoring and unchanged rotation/offsets, lower crop retention, old-setting migration, per-portrait persistence and invalid inputs. `verify-face-fit.mjs` exercises the actual browser controls, persisted settings, independent portraits, discarded drafts, current-photo previews, frozen current/photo print pixels after saving settings, changed future captures, reset, endpoints, mobile overflow and automatic capture with the fictional bearded guest.
 
 `welcome-gallery.js` rotates the active portrait catalog on the welcome screen at four-second intervals. It caches at most three decoded artwork images, uses generation tokens for pending loads, keeps the previous artwork if loading fails, and updates names/dots with each change. It stops timers off welcome or in a hidden tab; hover and focus pause it, and reduced motion starts paused. A play button can explicitly resume it. Library sync updates the catalog, so hidden portraits do not continue in the rotation. Poster dimensions remain constant across artwork aspect ratios. Browser verification covers cycling, layout stability, pause/resume, direct selection, off-screen stop, reduced motion, active-catalog filtering and mobile overflow.
+
+## v0.13.1 Removed Windows jobs are not failed prints
+
+The production PowerShell classifier `Get-MisrahJobState` handles missing jobs as terminal `unlisted`, prioritizes actual job errors/holds and explicit completed/printed flags, and classifies Deleted/Deleting without other evidence as `unlisted` rather than cancelled. Microsoft documents deletion as including removal after printing. A successful queue lookup with no job differs from a failed lookup.
+
+`BoothService.status` excludes `unlisted` from later polling, retains its accepted job ID, records an operator-facing explanation and leaves confirmed-completion/error counters unchanged. Query failures become unknown with a status-unavailable message (retaining known holds/stops); subsequent successful queries clear stale lookup errors. Legacy accepted unknown jobs are polled normally once, then become unlisted, allowing newer jobs to progress through the bounded polling list. Submission timeouts with no confirmed job ID remain unknown and deduplicated.
+
+Guest status for unlisted jobs is neutral: “Your photo was sent to the printer. Please collect it.” Genuine printer/job issues remain alerts. Each native submission clears the previous active job ID before awaiting a response, so an older accepted/unlisted job cannot overwrite uncertainty from a new failed or timed-out attempt.
+
+Regression checks cover terminal polling, accepted/completed/error accounting, deduplication, status-query failure/recovery, old-job recovery, printer-wide faults, the real PowerShell classifier on Windows, and the actual guest flow through a mocked native bridge. No hardware print is submitted by tests.
+
+Primary references: https://learn.microsoft.com/en-us/dotnet/api/system.printing.printjobstatus ; https://learn.microsoft.com/en-us/dotnet/api/system.printing.printqueue.getprintjobinfocollection ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-startdocw
