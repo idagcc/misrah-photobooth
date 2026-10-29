@@ -110,5 +110,5 @@ body[data-step=result] .guest-privacy,
 body[data-step=result] .guest-footer{display:none}
 body[data-step=result] .photo-print{padding:12px}
 body[data-step=result] #print-photo{justify-content:center;gap:12px}
-body[data-step=result] .finish-button{justify-content:center;gap:14px;margin-top:22px}
+body[data-step=result] .finish-button{justify-content:center;gap:14px;margin-top:22px;border:0;color:#fffdf5;font-weight:600}
 @media(max-width:600px){body[data-step=result] .photo-print{padding:8px}body[data-step=result] .finish-button{margin-top:12px}}

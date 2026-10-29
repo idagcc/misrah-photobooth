@@ -131,7 +131,7 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
   });
   window.addEventListener('afterprint', () => {
     lastActivity = Date.now();
-    if (step === 'result') $('status').textContent = 'Print window closed. You can print again, or finish for the next guest.';
+    if (step === 'result') $('status').textContent = 'Print window closed. Collect your photo, then tap Next participant.';
   });
   function activity() { lastActivity = Date.now(); $('idle-notice').hidden = true; }
   function archiveBlocked() { return Boolean(client.pendingArchive && client.config?.settings.archiveEnabled); }
@@ -173,9 +173,10 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
   setInterval(refreshPrinter, 5000);
   setInterval(() => {
     if (['welcome', 'processing'].includes(step) || printing || $('admin-dialog')?.open || archiveBlocked()) return;
-    const left = Math.ceil((120000 - (Date.now() - lastActivity)) / 1000);
+    const timeout = step === 'result' ? 30000 : 120000;
+    const left = Math.ceil((timeout - (Date.now() - lastActivity)) / 1000);
     if (left <= 0) { reset('welcome'); return; }
-    $('idle-seconds').textContent = String(left); $('idle-notice').hidden = left > 20;
+    $('idle-seconds').textContent = String(left); $('idle-notice').hidden = left > (step === 'result' ? 10 : 20);
   }, 1000);
   show('welcome');
   return { show, start, cancel, processing,

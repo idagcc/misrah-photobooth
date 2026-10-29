@@ -59,6 +59,11 @@ try {
   await capture();
   assert.equal(await page.locator('#finish-session').isEnabled(), false);
   assert.equal(await page.locator('#guest-save-alert').isVisible(), true);
+  // The result's 30-second idle reset must never discard an unsaved portrait.
+  await page.evaluate(() => { window.archiveRealNow = Date.now; Date.now = () => window.archiveRealNow() + 31000; });
+  await page.waitForTimeout(1200);
+  assert.equal(await page.locator('body').getAttribute('data-step'), 'result');
+  await page.evaluate(() => { Date.now = window.archiveRealNow; });
   await page.keyboard.press('Control+Alt+Shift+A');
   await page.locator('[data-admin-tab=storage]').click();
   await page.locator('#admin-retry-archive').waitFor();

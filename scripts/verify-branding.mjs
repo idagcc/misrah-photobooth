@@ -100,8 +100,8 @@ try {
       const source = document.createElement('canvas'); source.width = width; source.height = height;
       const c = source.getContext('2d'); c.fillStyle = '#ff0000'; c.fillRect(0, 0, width, height);
       const output = brandedPortrait(source, logo), ctx = output.getContext('2d');
-      const w = output.width, h = output.height, scale = Math.min(w * .91 / width, h * .862 / height);
-      const x = (w - width * scale) / 2, y = h * .12 + (h * .862 - height * scale) / 2;
+      const w = output.width, h = output.height, scale = Math.min(w * .91 / width, h * .82 / height);
+      const x = (w - width * scale) / 2, y = h * .15 + (h * .82 - height * scale) / 2;
       return [[x + 4, y + 4], [x + width * scale - 4, y + height * scale - 4]].every(([px, py]) => {
         const p = ctx.getImageData(px, py, 1, 1).data; return p[0] === 255 && p[1] === 0 && p[2] === 0;
       });

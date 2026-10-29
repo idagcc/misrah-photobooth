@@ -15,14 +15,15 @@ export function brandedPortrait(portrait, logo, canvas = document.createElement(
   const c = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
   c.fillStyle = '#f3e8d5'; c.fillRect(0, 0, w, h);
   c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
-  const margin = w * .045, top = h * .12, bottom = h * .018;
+  // Leave extra paper-safe headroom above the mark and shrink the artwork to fit.
+  const margin = w * .045, top = h * .15, bottom = h * .03;
   const scale = Math.min((w - margin * 2) / portrait.width, (h - top - bottom) / portrait.height);
   const pw = portrait.width * scale, ph = portrait.height * scale;
   c.drawImage(portrait, (w - pw) / 2, top + (h - top - bottom - ph) / 2, pw, ph);
 
   // Source bounds remove transparent padding without redrawing or distorting the supplied mark.
   const logoWidth = w * .26, logoHeight = logoWidth * 398 / 768;
-  c.drawImage(logo, 156, 341, 768, 398, w - margin - logoWidth, (top - logoHeight) / 2, logoWidth, logoHeight);
+  c.drawImage(logo, 156, 341, 768, 398, w - margin - logoWidth, Math.max(margin, (top - logoHeight) / 2), logoWidth, logoHeight);
 
   const size = w * .029, x = margin, y = top / 2 - size / 2, radius = size * .25;
   c.strokeStyle = '#211f1c'; c.fillStyle = '#211f1c'; c.lineWidth = w * .0018;
