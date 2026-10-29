@@ -77,7 +77,7 @@ try {
     await writeFile(`${qa}experiment-${person}-${position}-portrait.png`, Buffer.from(photo, 'base64'));
     results.push({ person, template, position, outline, crop: measured.correction });
     console.log(`PASS ${person}, ${position}, ${template}: tracked, cropped and fitted`);
-    await page.locator('#choose-another').click(); await step('choose');
+    await page.locator('#finish-session').click(); await step('welcome'); await page.locator('#touch-start').click(); await step('choose');
   }
   // Bad inputs must never trigger automatic capture. The manual shutter may
   // remain available for a frontal face when only exposure/focus needs advice.
@@ -96,7 +96,7 @@ try {
   // A clear moving face can now be cropped from the measured frame directly.
   await page.evaluate(() => { document.getElementById('sample-condition').value = 'motion'; });
   await page.locator('#frontal-weaver').click(); await step('result');
-  await page.locator('#choose-another').click(); await step('choose');
+  await page.locator('#finish-session').click(); await step('welcome'); await page.locator('#touch-start').click(); await step('choose');
   // A controlled delayed inference verifies that tapping during the next frame
   // uses the previous scored pixels and their matching crop coordinates.
   const race = await context.newPage();

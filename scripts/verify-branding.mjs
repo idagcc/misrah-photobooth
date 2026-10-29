@@ -76,9 +76,7 @@ try {
     await page.waitForFunction(() => window.printCalls === 1);
     assert.equal(await page.locator('#print-image').evaluate(img => img.naturalWidth), 1600);
     assert.equal(await page.locator('#print-image').evaluate(img => img.naturalHeight), 2400);
-    const downloadPromise = page.waitForEvent('download');
-    await page.locator('#download').click();
-    await (await downloadPromise).saveAs(new URL(`${name}-download.png`, out).pathname);
+    assert.equal(await page.locator('#download, #choose-another').count(), 0);
     await page.locator('#finish-session').click();
     await page.waitForFunction(() => document.body.dataset.step === 'welcome');
     assert.equal(await page.locator('#branded-portrait').evaluate(canvas => canvas.getContext('2d').getImageData(60, 100, 1, 1).data[3]), 0);
@@ -119,5 +117,5 @@ try {
   await page.waitForFunction(() => document.getElementById('welcome-status').textContent.includes('could not start'));
   assert.equal(await page.locator('#touch-start').isDisabled(), true);
   assert.deepEqual(errors, []);
-  console.log('PASS both approved guest scenes, grain-matched foreground preservation including gold plate, automatic simulated-camera capture, branded preview, PNG download, 4x6 browser print, reset clearing, custom aspect ratio preservation, mobile layout and missing-logo startup block.');
+  console.log('PASS both approved guest scenes, grain-matched foreground preservation including gold plate, automatic simulated-camera capture, branded preview, essential result actions, 4x6 browser print, reset clearing, custom aspect ratio preservation, mobile layout and missing-logo startup block.');
 } finally { await browser.close(); }

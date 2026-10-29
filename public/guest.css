@@ -101,3 +101,14 @@ body[data-step=result] #branded-portrait{display:block}
 
 /* Keep the existing light animation within the warm brand palette. */
 .lights-overlay video,.processing-inner video{filter:sepia(1)}
+
+/* Finished-photo review: the photograph and three essential actions. */
+body[data-step=result] .guest-intro .eyebrow,
+body[data-step=result] #experience-subtitle,
+body[data-step=result] .guest-progress,
+body[data-step=result] .guest-privacy,
+body[data-step=result] .guest-footer{display:none}
+body[data-step=result] .photo-print{padding:12px}
+body[data-step=result] #print-photo{justify-content:center;gap:12px}
+body[data-step=result] .finish-button{justify-content:center;gap:14px;margin-top:22px}
+@media(max-width:600px){body[data-step=result] .photo-print{padding:8px}body[data-step=result] .finish-button{margin-top:12px}}

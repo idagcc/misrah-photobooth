@@ -92,7 +92,6 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
   });
   $('open-camera').addEventListener('click', start);
   $('new-session').addEventListener('click', retake);
-  $('choose-another').addEventListener('click', () => reset('choose'));
   $('finish-session').addEventListener('click', () => reset('welcome'));
   $('cancel-sequence').addEventListener('click', () => camera.close());
   $('retry-camera').addEventListener('click', () => { show('choose'); start(); });
@@ -102,7 +101,7 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
     if (printing || step !== 'result' || !hasPhoto()) return;
     printing = true; $('print-photo').disabled = true;
     document.body.dataset.printing = 'true';
-    const navigation = ['new-session', 'choose-another', 'finish-session'];
+    const navigation = ['new-session', 'finish-session'];
     for (const id of navigation) $(id).disabled = true;
     try {
       if (client.config.settings.printMode === 'native' && !client.simulated) {
@@ -138,7 +137,7 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
   function archiveBlocked() { return Boolean(client.pendingArchive && client.config?.settings.archiveEnabled); }
   function archiveState() {
     const blocked = archiveBlocked();
-    for (const id of ['new-session', 'choose-another', 'finish-session']) $(id).disabled = printing || blocked;
+    for (const id of ['new-session', 'finish-session']) $(id).disabled = printing || blocked;
     if ($('guest-save-alert')) {
       $('guest-save-alert').hidden = !blocked;
       $('guest-save-alert').textContent = 'Your photo could not be saved. Please ask an attendant before leaving.';
@@ -154,7 +153,6 @@ export function createGuestFlow({ camera, clear, printImage, hasPhoto, client, g
   let checkingPrinter = false;
   async function refreshPrinter() {
     const native = client.config?.settings.printMode === 'native' && !client.simulated;
-    document.querySelector('.print-note').textContent = native ? '4 × 6 inch photo · Sent to the booth printer.' : '4 × 6 inch photo · Choose your printer in the print window.';
     if (step !== 'result' || !native || checkingPrinter || $('admin-dialog')?.open) return;
     checkingPrinter = true;
     try {

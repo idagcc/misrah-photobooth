@@ -25,9 +25,7 @@
       <section class="guest-photograph" aria-label="Your portrait">
         <figure class="photo-print">
           <div id="stage" class="guest-stage"><canvas id="portrait" width="1024" height="1536" role="img" aria-label="Selected heritage scene"></canvas><canvas id="branded-portrait" width="1200" height="1800" role="img" aria-label="Your finished portrait with Misrah logo and Instagram MISRAH_AE"></canvas><div id="stage-empty" hidden></div><div id="busy" class="busy" hidden><span class="spinner"></span><span id="busy-label">Preparing your portrait…</span></div></div>
-          <figcaption><span id="photo-caption">The palm weaver</span><span class="print-signature">Misrah</span></figcaption>
         </figure>
-        <p id="photo-context" class="photo-context">SCENE PREVIEW</p>
       </section>
       <aside class="guest-actions">
         <div id="choose-step">
@@ -39,7 +37,14 @@
           <button id="open-camera" class="button primary guest-camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></svg>Use selected template<span aria-hidden="true">↗</span></button>
           <p class="camera-note">Your photo is taken automatically. Just look straight ahead.</p>
         </div>
-        <div id="result-step" hidden><p class="step-label">03 — YOUR MOMENT, CAPTURED</p><h2>Make it a keepsake.</h2><p class="result-intro">Print your portrait to take home.</p><p id="guest-save-alert" class="guest-print-alert" hidden role="alert"></p><p id="guest-print-alert" class="guest-print-alert" hidden role="alert"></p><button id="print-photo" class="button primary wide" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4V8h16v9h-3M7 14h10v7H7z"/></svg>Print my photo <span aria-hidden="true">↗</span></button><button id="new-session" class="button secondary wide">↻ &nbsp; Retake photo</button><div class="result-links"><button id="choose-another">Choose another portrait</button><button id="download" disabled>Save a copy ↓</button></div><button id="finish-session" class="finish-button">Finish · Next guest <span aria-hidden="true">→</span></button><p class="print-note">4 × 6 inch photo · Choose your printer in the print window.</p><p id="sample-disclosure" class="sample-disclosure" hidden>Sample portrait with an AI-generated guest.</p></div>
+        <div id="result-step" hidden>
+          <p id="guest-save-alert" class="guest-print-alert" hidden role="alert"></p>
+          <p id="guest-print-alert" class="guest-print-alert" hidden role="alert"></p>
+          <button id="print-photo" class="button primary wide" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4V8h16v9h-3M7 14h10v7H7z"/></svg>Print photo</button>
+          <button id="new-session" class="button secondary wide">Retake photo</button>
+          <button id="finish-session" class="finish-button">Done <span aria-hidden="true">→</span></button>
+          <p id="sample-disclosure" class="sample-disclosure" hidden>Sample portrait with an AI-generated guest.</p>
+        </div>
         <p id="status" class="guest-status" role="status" aria-live="polite">Preparing the photo booth…</p>
         <p class="guest-privacy"><span aria-hidden="true">◌</span> Your photo stays on this device.</p>
       </aside>

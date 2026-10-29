@@ -56,7 +56,7 @@ try {
   await page.evaluate(()=>{window.numbers=[];new MutationObserver(()=>{const e=document.getElementById('capture-countdown');if(!e.hidden&&window.numbers.at(-1)!==e.textContent)window.numbers.push(e.textContent);}).observe(document.getElementById('capture-countdown'),{childList:true,attributes:true,attributeFilter:['hidden']});});
   await page.locator('#touch-start').click();await page.locator('#frontal-weaver').click();await page.waitForFunction(()=>document.body.dataset.step==='result',null,{timeout:45000});
   const guest=await page.evaluate(()=>({numbers:window.numbers,requests:window.poseQA.requests,results:window.poseQA.results,stopped:document.getElementById('camera-video').srcObject===null}));
-  assert.deepEqual(guest.numbers,['3','2','1']);assert.equal(guest.requests.length,1);assert.equal(guest.stopped,true);assert.equal(await page.locator('#download').isEnabled(),true);
+  assert.deepEqual(guest.numbers,['3','2','1']);assert.equal(guest.requests.length,1);assert.equal(guest.stopped,true);assert.equal(await page.locator('#print-photo').isEnabled(),true);
   await page.screenshot({path:`${qa}pose-correction-guest.png`});
   // Native 4K acquisition, using the same synthetic source as the 30 fps benchmark.
   await page.evaluate(()=>{

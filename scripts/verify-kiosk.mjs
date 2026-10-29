@@ -68,17 +68,13 @@ try {
   assert.equal(await page.locator('#print-sheet').isVisible(), true);
   await page.pdf({ path: `${qa}kiosk-print.pdf`, preferCSSPageSize: true, printBackground: true });
   await page.emulateMedia({ media: 'screen' });
-  const downloadPromise = page.waitForEvent('download');
-  await page.locator('#download').click();
-  const download = await downloadPromise;
-  assert.match(download.suggestedFilename(), /misrah-portrait.*\.png$/);
-  await download.saveAs(`${qa}kiosk-export.png`);
+  assert.equal(await page.locator('#download, #choose-another').count(), 0);
   await page.locator('#new-session').click();
   await waitStep('lights');
   assert.equal(await page.locator('#scene-list .selected').getAttribute('id'), 'frontal-weaver');
   assert.equal(await page.locator('#print-image').getAttribute('src'), null);
   await waitStep('result');
-  await page.locator('#choose-another').click();
+  await page.locator('#finish-session').click(); await waitStep('welcome'); await page.locator('#touch-start').click();
   await waitStep('choose');
   // Exercise all three approved portraits through the real model/compositor.
   // Scene references are explicit internal fixtures, never represented as real guests.
@@ -89,7 +85,7 @@ try {
     await waitStep('result');
     assert.equal(await page.locator('#print-photo').isEnabled(), true, id);
     console.log(`PASS capture and review: ${id}`);
-    await page.locator('#choose-another').click();
+    await page.locator('#finish-session').click(); await waitStep('welcome'); await page.locator('#touch-start').click();
     await waitStep('choose');
   }
   // Return for the next guest and clear the print image.
@@ -98,7 +94,7 @@ try {
   await page.locator('#finish-session').click();
   await waitStep('welcome');
   assert.equal(await page.locator('#print-image').getAttribute('src'), null);
-  assert.equal(await page.locator('#download').isEnabled(), false);
+  assert.equal(await page.locator('#print-photo').isEnabled(), false);
   // Idle warning/reset without waiting two real minutes (only the wall clock changes).
   await page.locator('#touch-start').click();
   await page.evaluate(() => { const original = Date.now; window.realNow = original; Date.now = () => original() + 105000; });
@@ -140,5 +136,5 @@ try {
   await page.waitForFunction(() => document.getElementById('model-status').textContent.includes('ready'), null, { timeout: 60000 });
   assert.equal(await page.locator('#photo-upload').count(), 1);
   assert.deepEqual(errors, []);
-  console.log('PASS welcome, lights, cancellation, auto-capture, retry, two frontal portraits, print layout, export, finish, idle cleanup, phone, permission failure and operator startup.');
+  console.log('PASS welcome, lights, cancellation, auto-capture, retry, two frontal portraits, print layout, essential result actions, finish, idle cleanup, phone, permission failure and operator startup.');
 } finally { await browser.close(); }

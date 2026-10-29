@@ -37,7 +37,7 @@ const imageFromURL = url => new Promise((resolve, reject) => {
 function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
 function busy(on, label = 'Finding your face…') { $('busy').hidden = !on; $('busy-label').textContent = label; }
 function modelStatus(message, mode = 'ready') { $('model-status').textContent = message; $('model-dot').className = `small-dot ${mode}`; }
-function controlsEnabled(on) { $('face-controls').disabled = !on; $('download').disabled = !on; if (guestExperience) $('print-photo').disabled = !on; $('stage-empty').hidden = on; }
+function controlsEnabled(on) { $('face-controls').disabled = !on; if ($('download')) $('download').disabled = !on; if (guestExperience) $('print-photo').disabled = !on; $('stage-empty').hidden = on; }
 function guestStep(step) {
   if (!guestExperience) return;
   guestFlow?.show(step);
@@ -47,7 +47,6 @@ function guestStep(step) {
   $('experience-subtitle').textContent = step === 'result' ? 'Print a keepsake, or take another photo.' : 'Tap a portrait to begin. Then look straight at the camera.';
   const sample = step === 'result' && /^(AI TEST|SIMULATED|SAMPLE)/.test($('source-tag').textContent);
   $('sample-disclosure').hidden = !sample;
-  $('photo-context').textContent = step === 'result' ? (sample ? 'SAMPLE PORTRAIT' : 'YOUR FINISHED PORTRAIT') : 'SCENE PREVIEW';
   portrait.setAttribute('aria-label', step === 'result' ? 'Your finished heritage portrait' : 'Selected heritage scene');
 }
 let worker, engineFailed = false, nextJob = 0;
@@ -276,7 +275,6 @@ function selectScene(frame, id) {
     button.classList.toggle('selected', button.id === id); button.querySelector('.check').hidden = button.id !== id;
     button.setAttribute('aria-pressed', String(button.id === id));
   }
-  if (guestExperience) $('photo-caption').textContent = $(id)?.querySelector('strong')?.textContent || frame.name;
   setCanvasSize(); resetFit(); applyAutoTone(); poseInfo();
 }
 for (const definition of sceneDefinitions) if (!guestExperience) $(definition.id).addEventListener('click', () => {
@@ -308,7 +306,7 @@ async function applyAutoTone() {
     await applyPoseCorrection(token, generation); updateSourcePreview(); render(); return;
   }
   try {
-    $('download').disabled = true;
+    if ($('download')) $('download').disabled = true;
     const correction = correctionFor(q, state.frame.quality);
     const bitmap = await createImageBitmap(state.rawSource);
     const result = await requestWorker({ type: 'correct', correction }, bitmap);
@@ -322,7 +320,7 @@ async function applyAutoTone() {
       updateSourcePreview(); render();
     } finally { result.corrected.close(); }
   } catch (error) { if (token === state.toneGeneration) $('tone-info').textContent = 'Automatic tone unavailable. Manual adjustments still work.'; }
-  finally { if (token === state.toneGeneration && generation === state.generation) $('download').disabled = false; }
+  finally { if (token === state.toneGeneration && generation === state.generation && $('download')) $('download').disabled = false; }
 }
 $('auto-tone').addEventListener('change', applyAutoTone);
 $('pose-correction').addEventListener('change', applyAutoTone);
@@ -571,7 +569,7 @@ portrait.addEventListener('keydown', event => {
   syncSettings(); setView('result');
 });
 
-$('download').addEventListener('click', () => {
+$('download')?.addEventListener('click', () => {
   if (!state.source) return;
   const view = state.view, guide = $('edit-opening').checked; state.view = 'result'; $('edit-opening').checked = false; render();
   const format = $('export-format').value, extension = format === 'image/png' ? 'png' : 'jpg';

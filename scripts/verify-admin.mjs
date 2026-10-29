@@ -73,7 +73,7 @@ try {
   await page.locator('#admin-close').click();
   assert.equal(await page.locator(`#${imported}`).count(), 0);
   assert.equal(await page.locator('body').getAttribute('data-step'), 'choose');
-  assert.equal(await page.locator('#download').isEnabled(), false);
+  assert.equal(await page.locator('#print-photo').isEnabled(), false);
   // Actual aggregate API, with deduplication and restart-persisted SQLite state.
   const cfg = await (await fetch(`${base}/api/bootstrap`)).json(), event = { id: crypto.randomUUID(), template: 'frontal-weaver', kind: 'selection' };
   const before = await (await fetch(`${base}/api/stats`)).json();
