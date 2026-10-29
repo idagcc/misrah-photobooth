@@ -296,7 +296,7 @@ export class LiveCamera {
     if (this.faceMap.width !== width || this.faceMap.height !== height) { this.faceMap.width = width; this.faceMap.height = height; }
     c.clearRect(0, 0, width, height); this.faceMap.dataset.faces = String(faces.length);
     const display = updateFaceMap(this.mapState, faces, performance.now());
-    c.strokeStyle = this.guestExperience ? '#edf4df' : ready ? '#cde5b3' : '#f4ddb0'; c.fillStyle = c.strokeStyle;
+    c.strokeStyle = this.guestExperience ? '#f2e8e1' : ready ? '#dfcab9' : '#f4ddb0'; c.fillStyle = c.strokeStyle;
     c.lineWidth = Math.max(1.5, width / 300); c.lineJoin = 'round';
     const trace = (points, indices, close = false) => {
       c.beginPath();
