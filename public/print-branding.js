@@ -13,7 +13,8 @@ export function brandedPortrait(portrait, logo, canvas = document.createElement(
   canvas.width = Math.min(1600, Math.max(1200, portrait.width, Math.ceil(portrait.height / 1.5)));
   canvas.height = Math.round(canvas.width * 1.5);
   const c = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
-  c.fillStyle = '#f3e8d5'; c.fillRect(0, 0, w, h);
+  // A deeper warm sand keeps the surrounding frame visible on printed paper.
+  c.fillStyle = '#d8c3a3'; c.fillRect(0, 0, w, h);
   c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
   // Leave extra paper-safe headroom above the mark and shrink the artwork to fit.
   const margin = w * .045, top = h * .15, bottom = h * .03;
