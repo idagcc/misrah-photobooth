@@ -27,7 +27,7 @@ BUILTINS = [
 ]
 RETIRED_BUILTINS = ("frontal-pearl-trader", "misrah-sailor")
 
-DEFAULTS = {"cameraId": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True, "portraitZoom": {}}
+DEFAULTS = {"cameraId": "", "cameraLabel": "", "rate": 30, "printMode": "dialog", "printer": "", "media": "", "archiveEnabled": True, "portraitZoom": {}, "falconerHeight": -3}
 EVENT_TIMEZONE = timezone(timedelta(hours=4), "Asia/Dubai")
 MIN_ARCHIVE_FREE = 1024 ** 3
 
@@ -318,9 +318,21 @@ class BoothService:
             if not self.db.execute("SELECT 1 FROM templates WHERE id=?", (template,)).fetchone():
                 raise ValueError("Choose an available portrait.")
 
+    def remember_camera(self, value):
+        if set(value) != {"cameraId", "cameraLabel"} or any(
+                not isinstance(item, str) or len(item) > 256 for item in value.values()):
+            raise ValueError("Invalid camera selection.")
+        with self.lock, self.db:
+            settings = self.config()["settings"]
+            settings.update(value)
+            self.db.execute("UPDATE settings SET value=? WHERE id=1", (json.dumps(settings),))
+        return self.config()
+
     def save_settings(self, value):
         if not isinstance(value, dict) or set(value) != set(DEFAULTS):
             raise ValueError("The device settings are incomplete.")
+        if type(value["falconerHeight"]) is not int or not -15 <= value["falconerHeight"] <= 15:
+            raise ValueError("Falconer vertical position must be between -15 and 15.")
         zooms = value["portraitZoom"]
         if not isinstance(zooms, dict) or len(zooms) > 50:
             raise ValueError("Choose a face size for an available portrait.")
@@ -332,7 +344,7 @@ class BoothService:
             raise ValueError("Choose a supported performance and printing mode.")
         if type(value["archiveEnabled"]) is not bool:
             raise ValueError("Choose whether finished portraits should be saved.")
-        for key in ("cameraId", "printer", "media"):
+        for key in ("cameraId", "cameraLabel", "printer", "media"):
             if not isinstance(value[key], str) or len(value[key]) > 256:
                 raise ValueError("Invalid device selection.")
         if value["printMode"] == "native":

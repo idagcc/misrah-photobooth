@@ -7,7 +7,7 @@ import { createAdminPanel } from './admin-panel.js';
 import { brandReady, brandedPortrait } from './print-branding.js';
 import { APPROVED_PORTRAITS, prepareApprovedPortrait } from './approved-portraits.js';
 import { applyPhotoGrain } from './photo-grain.js';
-import { portraitZoom, withPortraitZoom } from './face-fit.js';
+import { portraitHeight, portraitZoom, withPortraitZoom } from './face-fit.js';
 import { createWelcomeGallery } from './welcome-gallery.js';
 
 const $ = id => document.getElementById(id);
@@ -27,7 +27,7 @@ function finishedPortrait() {
 const sourceCanvas = $('source-canvas'), sourceCtx = sourceCanvas.getContext('2d');
 const defaults = { scale: 100, x: 0, y: 0, rotation: 0, warmth: 30, brightness: 100, softness: 2, flip: false };
 const state = { settings: { ...defaults }, source: null, faces: [], selected: 0, frame: null,
-  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [], landmarks: [], captureZoom: null };
+  view: 'result', generation: 0, toneGeneration: 0, rawSource: null, qualities: [], poses: [], landmarks: [], captureZoom: null, captureHeight: null };
 // Opt-in while evaluating the still-photo experiment; ordinary booth links keep the committed capture flow.
 if (new URLSearchParams(location.search).get('pose') === 'correct') $('pose-correction').checked = true;
 const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
@@ -363,7 +363,8 @@ function render() {
   ctx.drawImage(frame.layer, 0, 0);
   if (source && state.view === 'result') {
     const geometry = state.faces[state.selected] || manualGeometry(source.width, source.height);
-    const transform = alignment(geometry, frame.target, withPortraitZoom(settings, state.captureZoom ?? portraitZoom(booth?.config?.settings, frame.id)));
+    const transform = alignment(geometry, frame.target, withPortraitZoom(settings, state.captureZoom ?? portraitZoom(booth?.config?.settings, frame.id),
+      state.captureHeight ?? portraitHeight(booth?.config?.settings, frame.id), frame.bounds.bottom - frame.bounds.top));
     if (faceLayer.width !== w || faceLayer.height !== h) { faceLayer.width = w; faceLayer.height = h; }
     const fctx = faceLayer.getContext('2d'); fctx.clearRect(0, 0, w, h);
     fctx.save(); fctx.translate(transform.x, transform.y); fctx.rotate(transform.angle);
@@ -447,6 +448,7 @@ function faceButtons() {
 async function setSource(image, label, measuredDetection = null) {
   const generation = ++state.generation;
   // Freeze the selected fit for this photograph, including its archive and print.
+  state.captureHeight = portraitHeight(booth?.config?.settings, state.frame?.id);
   state.captureZoom = portraitZoom(booth?.config?.settings, state.frame?.id);
   state.source = image; state.rawSource = image; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults }; state.toneGeneration++;
   if (state.frame?.quality?.styleStrength) { state.settings.warmth = 0; state.settings.softness = 6; }
@@ -643,7 +645,7 @@ $('heritage-frame')?.addEventListener('click', async () => {
 });
 
 const fitSamples = new Map();
-async function previewFaceFit({ id, zoom, sample }) {
+async function previewFaceFit({ id, zoom, height, sample }) {
   await liveReady;
   const definition = booth.config.templates.find(item => item.id === id);
   if (!definition) throw new Error('Choose an available portrait.');
@@ -682,7 +684,7 @@ async function previewFaceFit({ id, zoom, sample }) {
   const top = clamp(frame.target.anchor.y - viewHeight * .38, 0, Math.max(0, frame.image.height - viewHeight));
   const canvas = makeCanvas(560, 672), c = canvas.getContext('2d'), scale = canvas.width / viewWidth;
   c.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
-  const t = alignment(geometry, frame.target, withPortraitZoom(settings, zoom));
+  const t = alignment(geometry, frame.target, withPortraitZoom(settings, zoom, height, b.bottom - b.top));
   c.save(); c.translate(t.x, t.y); c.rotate(t.angle);
   c.scale(t.scale * (settings.flip ? -1 : 1), t.scale); c.translate(-geometry.anchor.x, -geometry.anchor.y);
   c.filter = `sepia(${settings.warmth * .6}%) saturate(${100 - settings.warmth * .25}%) brightness(${settings.brightness}%)`;
@@ -699,6 +701,12 @@ const liveReady = engineReady.then(() => { if (engineFailed) throw new Error('Th
 liveReady.catch(() => {});
 const liveCamera = new LiveCamera({ detect, ready: liveReady, getFrame: () => state.frame,
   getSettings: () => booth?.config?.settings || {},
+  rememberCamera: async camera => {
+    if (!booth) return;
+    await booth.ready;
+    if (camera.cameraId && (camera.cameraId !== booth.config.settings.cameraId || camera.cameraLabel !== booth.config.settings.cameraLabel))
+      await booth.rememberCamera(camera);
+  },
   onClose: captured => { if (guestExperience && !captured) guestFlow?.cancel(); },
   canCapture: () => !guestExperience || document.body.dataset.step === 'camera',
   capture: setSource, getSample: async () => {
@@ -712,6 +720,7 @@ $('live-correction').addEventListener('change', () => { $('auto-tone').checked =
 
 async function resetSession(destination = 'choose') {
   const previousFrame = state.frame, previousId = state.frame?.id || $('scene-list').querySelector('.selected')?.id;
+  state.captureHeight = null;
   state.captureZoom = null;
   state.generation++; state.toneGeneration++; liveCamera.close(); busy(false); state.source = null; state.rawSource = null; state.qualities = []; state.poses = []; state.faces = []; state.landmarks = []; state.selected = 0; state.settings = { ...defaults };
   faceLayer.getContext('2d').clearRect(0, 0, faceLayer.width, faceLayer.height);

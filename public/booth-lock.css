@@ -1,0 +1,7 @@
+@media screen {
+  html.booth-locked,html.booth-locked body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-x pan-y}
+  .booth-locked body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  .booth-locked body>:not(#admin-dialog){touch-action:none}
+  .booth-locked #admin-dialog{touch-action:pan-y;overscroll-behavior:contain}
+  .booth-locked #admin-dialog :is(input,textarea){-webkit-user-select:text;user-select:text}
+}

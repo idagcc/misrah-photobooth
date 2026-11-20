@@ -103,6 +103,8 @@ class LocalHandler(SimpleHTTPRequestHandler):
             service, route = self.server.booth, urlsplit(self.path).path
             if route == "/api/settings":
                 result = service.save_settings(value)
+            elif route == "/api/camera":
+                result = service.remember_camera(value)
             elif route == "/api/templates":
                 result = service.add_template(value.get("name"), value.get("image"), value.get("thumbnail"))
             elif route == "/api/templates/toggle":

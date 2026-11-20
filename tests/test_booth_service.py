@@ -59,6 +59,25 @@ class BoothTests(unittest.TestCase):
         self.service.db.close()
         self.directory.cleanup()
 
+    def test_remember_camera_does_not_require_printer_to_be_online(self):
+        self.printer.printers = lambda: []
+        self.service.remember_camera({'cameraId': 'new-id', 'cameraLabel': 'USB Camera'})
+        saved = self.service.config()['settings']
+        self.assertEqual(saved['cameraId'], 'new-id')
+        self.assertEqual(saved['cameraLabel'], 'USB Camera')
+        self.assertEqual(saved['printer'], self.settings['printer'])
+        with self.assertRaises(ValueError):
+            self.service.remember_camera({'cameraId': 'bad', 'cameraLabel': '', 'printer': ''})
+
+    def test_camera_choice_survives_restart(self):
+        value = {**self.settings, 'cameraId': 'usb-camera-id', 'cameraLabel': 'Booth USB Camera'}
+        self.service.save_settings(value)
+        reopened = BoothService(self.directory.name, self.printer)
+        try:
+            self.assertEqual(reopened.config()['settings'], value)
+        finally:
+            reopened.db.close()
+
     def test_local_settings_and_template_counts_survive_restart(self):
         key = str(uuid.uuid4())
         self.service.event(key, 'frontal-weaver', 'selection')
@@ -122,7 +141,7 @@ class BoothTests(unittest.TestCase):
             reopened.db.close()
 
     def test_old_booth_settings_gain_face_zoom_without_losing_devices(self):
-        legacy = {key: value for key, value in self.settings.items() if key != 'portraitZoom'}
+        legacy = {key: value for key, value in self.settings.items() if key not in ('portraitZoom', 'cameraLabel')}
         self.service.db.execute('UPDATE settings SET value=?', (json.dumps(legacy),))
         self.service.db.commit()
         self.assertEqual(self.service.config()['settings'], self.settings)

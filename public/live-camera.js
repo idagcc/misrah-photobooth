@@ -1,14 +1,15 @@
 import { FACE_OVAL, faceGeometry, faceCrop, landmarksForCrop, alignment } from './geometry.js';
 import { assessFrame, advanceHold, advancePoseCountdown, canCaptureFace, liveDefaults } from './live-quality.js';
+import { openPreferredCamera } from './camera-selection.js';
 import { cameraProfile, analysisDue } from './camera-performance.js';
 import { updateFaceMap } from './live-display.js';
-import { portraitZoom, withPortraitZoom } from './face-fit.js';
+import { portraitHeight, portraitZoom, withPortraitZoom } from './face-fit.js';
 const $ = id => document.getElementById(id);
 const canvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
 export class LiveCamera {
-  constructor({ detect, ready, getFrame, capture, getSample, getSettings = () => ({}), onClose = () => {}, canCapture = () => true }) {
-    Object.assign(this, { detect, ready, getFrame, onCapture: capture, getSample, getSettings, onClose, canCapture });
+  constructor({ detect, ready, getFrame, capture, getSample, getSettings = () => ({}), rememberCamera = async () => {}, onClose = () => {}, canCapture = () => true }) {
+    Object.assign(this, { detect, ready, getFrame, onCapture: capture, getSample, getSettings, rememberCamera, onClose, canCapture });
     this.dialog = $('camera-dialog'); this.video = $('camera-video'); this.stream = null;
     this.guestExperience = document.body.dataset.experience === 'guest';
     this.epoch = 0; this.timer = null; this.sampleTimer = null; this.inFlight = false;
@@ -83,7 +84,8 @@ export class LiveCamera {
       } else {
         $('sample-controls').hidden = true;
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('Open the local address in Chrome or Edge to use a webcam.');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: this.profile.video, audio: false });
+        const stream = await openPreferredCamera(navigator.mediaDevices, this.profile.video,
+          deviceId === this.getSettings().cameraId ? this.getSettings().cameraLabel : '', () => epoch === this.epoch);
         if (epoch !== this.epoch) { stream.getTracks().forEach(track => track.stop()); return; }
         this.stream = stream;
       }
@@ -98,18 +100,24 @@ export class LiveCamera {
       this.metricsStartedAt = null; this.lastMetricsAt = 0; this.cameraFirstFrame = null;
       this.cameraLastFrame = null; this.cameraFirstAt = null; this.cameraLastAt = null;
       this.emitPerformance();
+      let saveNotice = '';
       if (!sample) {
         const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
         if (epoch !== this.epoch) return;
         $('camera-select').replaceChildren(...devices.map((d, i) => new Option(d.label || `Camera ${i + 1}`, d.deviceId)));
         $('camera-select').value = this.stream.getVideoTracks()[0].getSettings().deviceId || '';
         $('camera-select').disabled = false;
+        const track = this.stream.getVideoTracks()[0];
+        try { await this.rememberCamera({ cameraId: track.getSettings().deviceId || '', cameraLabel: track.label || '' }); }
+        catch { saveNotice = 'Camera started, but its selection could not be saved. Check device settings.'; }
+        if (epoch !== this.epoch) return;
       }
       $('capture').disabled = this.guestExperience;
       await this.ready;
       if (epoch !== this.epoch) return;
       $('auto-capture').disabled = false;
       $('camera-status').textContent = this.guestExperience ? 'Make your pose during 3, 2, 1. We take your photo when 1 appears. Or tap Take picture now.' : 'The outline follows your face. Capture automatically crops and fits it to the portrait. Manual capture is always available.';
+      if (saveNotice) $('camera-status').textContent = saveNotice;
       this.schedule(epoch);
       return true;
     } catch (error) {
@@ -324,7 +332,8 @@ export class LiveCamera {
       const smooth = old ? { ...geometry, anchor: { x: old.anchor.x * .35 + geometry.anchor.x * .65, y: old.anchor.y * .35 + geometry.anchor.y * .65 },
         eyeDistance: old.eyeDistance * .35 + geometry.eyeDistance * .65, angle: old.angle * .35 + geometry.angle * .65 } : geometry;
       this.lastGeometry = smooth;
-      const t = alignment(smooth, frame.target, withPortraitZoom({ x: 0, y: 0, scale: 100, flip: false, rotation: 0 }, portraitZoom(this.getSettings(), frame.id)));
+      const t = alignment(smooth, frame.target, withPortraitZoom({ x: 0, y: 0, scale: 100, flip: false, rotation: 0 }, portraitZoom(this.getSettings(), frame.id),
+        portraitHeight(this.getSettings(), frame.id), frame.bounds.bottom - frame.bounds.top));
       c.save(); c.scale(scale, scale);
       const b = frame.bounds; c.beginPath(); c.rect(b.left - 6, b.top - 6, b.right - b.left + 12, b.bottom - b.top + 12); c.clip();
       c.translate(t.x, t.y); c.rotate(t.angle); c.scale(t.scale, t.scale); c.translate(-smooth.anchor.x, -smooth.anchor.y);

@@ -21,6 +21,9 @@ def main():
             archive.extractall(temp)
         root = next(Path(temp).iterdir())
         python = root / "runtime" / "python.exe" if sys.platform == "win32" else Path(sys.executable)
+        if (root / "runtime").exists():
+            for filename in ("Enable Windows Startup.bat", "Disable Windows Startup.bat", "windows-startup.ps1"):
+                assert (root / filename).is_file(), filename
         if sys.platform == "win32":
             subprocess.run([str(python), "-c", "from windows_printer import WindowsPrinter; assert WindowsPrinter().request('check') is True; from desktop_launch import find_windows_browser; assert find_windows_browser(), 'Edge or Chrome must be discoverable on the Windows runner'; print('PASS Windows native print bridge compiles and full-screen browser is discoverable')"], cwd=root, check=True)
         with socket.socket() as sock:
@@ -41,13 +44,22 @@ def main():
             else:
                 raise RuntimeError("Packaged server did not start")
             assert bootstrap["token"]
+            camera = {"cameraId": "package-camera", "cameraLabel": "Package camera"}
+            request = urllib.request.Request(base + "/api/camera", data=json.dumps(camera).encode(),
+                headers={"Content-Type": "application/json", "X-Booth-Token": bootstrap["token"]})
+            with urllib.request.urlopen(request, timeout=5) as response:
+                saved = json.load(response)["settings"]
+            assert all(saved[key] == value for key, value in camera.items())
+            with urllib.request.urlopen(base + "/api/bootstrap", timeout=5) as response:
+                assert json.load(response)["settings"]["cameraId"] == camera["cameraId"]
+
             assert [item['id'] for item in bootstrap['templates']] == ['frontal-weaver', 'misrah-falconer']
             for filename, dimensions in [('palm-weaver.png', (2048, 3072)), ('falconer.png', (2172, 2896))]:
                 with urllib.request.urlopen(base + '/assets/approved/' + filename, timeout=5) as response:
                     header = response.read()[:24]
                     assert header[:8] == b'\x89PNG\r\n\x1a\n'
                     assert (int.from_bytes(header[16:20], 'big'), int.from_bytes(header[20:24], 'big')) == dimensions
-            for asset in ["landscape.html", "index.html", "landscape.js", "approved-portraits.js", "face-fit.js", "welcome-gallery.js", "models/face_landmarker.task"]:
+            for asset in ["landscape.html", "index.html", "landscape.js", "booth-lock.js", "booth-lock.css", "approved-portraits.js", "face-fit.js", "welcome-gallery.js", "camera-selection.js", "models/face_landmarker.task"]:
                 with urllib.request.urlopen(base + "/" + asset, timeout=5) as response:
                     assert response.status == 200 and response.read()
             with urllib.request.urlopen(base + "/api/status", timeout=10) as response:

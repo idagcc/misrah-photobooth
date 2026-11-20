@@ -1,5 +1,5 @@
 import { isAdminShortcut } from './operator-shortcut.js';
-import { portraitZoom, defaultPortraitZoom } from './face-fit.js';
+import { portraitHeight, portraitZoom, defaultPortraitZoom } from './face-fit.js';
 const $ = id => document.getElementById(id);
 const element = (tag, text, className) => Object.assign(document.createElement(tag), { textContent: text, ...(className ? { className } : {}) });
 
@@ -23,7 +23,7 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
       </form>
     </section>
     <section id="admin-fit" class="admin-section" hidden>
-      <h3>Adjust the face size</h3><p class="admin-hint">Set the face size separately for each portrait. A smaller size gives more room around the face. Saved changes apply to future captures; the current finished photo keeps its original fit.</p>
+      <h3>Adjust the face fit</h3><p class="admin-hint">Set the face size separately for each portrait. A smaller size gives more room around the face. Saved changes apply to future captures; the current finished photo keeps its original fit.</p>
       <form id="admin-fit-settings" class="admin-fit-layout">
         <figure class="admin-fit-preview"><canvas id="admin-fit-preview" width="560" height="672" role="img" aria-label="Face fit preview"></canvas><figcaption id="admin-fit-preview-label" role="status">Choose a portrait to preview.</figcaption></figure>
         <div><label>Portrait<select id="admin-fit-portrait"></select></label>
@@ -32,7 +32,10 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
           <input id="admin-face-zoom" type="range" min="75" max="115" step="1" value="92" aria-describedby="admin-face-zoom-hint">
           <div class="admin-zoom-ends"><span>Smaller · 75%</span><span>Larger · 115%</span></div>
           <p id="admin-face-zoom-hint" class="admin-hint">100% is the original size. Long beards can still extend beyond the artwork’s opening. Preview changes here before saving.</p>
-          <button id="admin-fit-reset" type="button" class="button secondary admin-save">Use recommended size</button>
+          <div id="admin-height-control" hidden><label for="admin-face-height">Vertical position <output id="admin-height-value"></output></label>
+            <input id="admin-face-height" type="range" min="-15" max="15" step="1">
+            <p class="admin-hint">Move left to raise the face and show more chin or beard. Move right to lower the face.</p></div>
+          <button id="admin-fit-reset" type="button" class="button secondary admin-save">Use recommended fit</button>
           <p id="admin-fit-state" class="admin-hint" role="status"></p>
           <button id="admin-fit-save" type="submit" class="button primary admin-save">Save face fit</button>
         </div>
@@ -68,11 +71,13 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
     const request = ++fitPreviewRequest, id = $('admin-fit-portrait').value, zoom = Number($('admin-face-zoom').value);
     delete $('admin-fit-preview').dataset.zoom;
     $('admin-face-zoom-value').value = `${zoom}%`;
-    const changed = zoom !== portraitZoom(client.config.settings, id);
-    $('admin-fit-state').textContent = changed ? 'Unsaved preview · Save to use this size for future captures.' : 'Saved size · Used for future captures.';
+    const height = id === 'misrah-falconer' ? Number($('admin-face-height').value) : 0;
+    $('admin-height-value').value = height === 0 ? 'Centered' : `${Math.abs(height)}% ${height < 0 ? 'up' : 'down'}`;
+    const changed = zoom !== portraitZoom(client.config.settings, id) || height !== portraitHeight(client.config.settings, id);
+    $('admin-fit-state').textContent = changed ? 'Unsaved preview · Save to use this fit for future captures.' : 'Saved fit · Used for future captures.';
     $('admin-fit-preview-label').textContent = 'Preparing preview…';
     try {
-      const result = await previewFaceFit({ id, zoom, sample: $('admin-fit-sample').value });
+      const result = await previewFaceFit({ id, zoom, height, sample: $('admin-fit-sample').value });
       if (request !== fitPreviewRequest || !dialog.open) return;
       const canvas = $('admin-fit-preview');
       canvas.width = result.canvas.width; canvas.height = result.canvas.height;
@@ -91,6 +96,8 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
     const hasCurrent = current.hasPhoto && current.id === id;
     $('admin-fit-sample').querySelector('[value=current]').disabled = !hasCurrent;
     if ($('admin-fit-sample').value === 'current' && !hasCurrent) $('admin-fit-sample').value = id === 'frontal-weaver' ? 'woman' : 'bearded';
+    $('admin-height-control').hidden = id !== 'misrah-falconer';
+    $('admin-face-height').value = String(portraitHeight(client.config.settings, id));
     $('admin-face-zoom').value = String(portraitZoom(client.config.settings, id));
     fitPreview();
   }
@@ -119,11 +126,13 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
       row.append(img, label, toggle); return row;
     }));
   }
+  const cameraNames = new Map();
   async function cameras(ask = false) {
     let stream;
     try {
       if (ask) stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
       const devices = (await navigator.mediaDevices.enumerateDevices()).filter(item => item.kind === 'videoinput');
+      for (const device of devices) cameraNames.set(device.deviceId, device.label);
       const saved = $('admin-camera').value;
       $('admin-camera').replaceChildren(new Option('Default camera', ''), ...devices.map((d, i) => new Option(d.label || `Camera ${i + 1} · allow access to see its name`, d.deviceId)));
       if (saved && !devices.some(d => d.deviceId === saved)) $('admin-camera').add(new Option('Saved camera · not currently found', saved));
@@ -224,8 +233,10 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
   });
   $('admin-fit-portrait').addEventListener('change', selectFit);
   $('admin-fit-sample').addEventListener('change', fitPreview);
+  $('admin-face-height').addEventListener('input', fitPreview);
   $('admin-face-zoom').addEventListener('input', fitPreview);
   $('admin-fit-reset').addEventListener('click', () => {
+    $('admin-face-height').value = String(portraitHeight({}, $('admin-fit-portrait').value));
     $('admin-face-zoom').value = String(defaultPortraitZoom($('admin-fit-portrait').value)); fitPreview();
   });
   $('admin-fit-settings').addEventListener('submit', event => {
@@ -234,7 +245,8 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
     run(async () => {
       $('admin-fit-save').disabled = true;
       try {
-        await client.saveSettings({ ...client.config.settings, portraitZoom: { ...client.config.settings.portraitZoom, [id]: zoom } });
+        await client.saveSettings({ ...client.config.settings,
+          ...(id === 'misrah-falconer' ? { falconerHeight: Number($('admin-face-height').value) } : {}), portraitZoom: { ...client.config.settings.portraitZoom, [id]: zoom } });
         fitPreview();
         feedback('Face fit saved on this computer. Applies to future captures.');
       } finally { $('admin-fit-save').disabled = false; }
@@ -246,7 +258,12 @@ export function createAdminPanel({ client, addPortrait, syncLibrary, pause, prev
   $('admin-print-mode').addEventListener('change', mode);
   $('admin-settings').addEventListener('submit', event => {
     event.preventDefault(); run(async () => {
-      await client.saveSettings({ ...client.config.settings, cameraId: $('admin-camera').value, rate: Number($('admin-rate').value), printMode: $('admin-print-mode').value, printer: $('admin-printer').value, media: $('admin-media').value });
+      const cameraId = $('admin-camera').value;
+      const cameraLabel = cameraId ? (cameraNames.get(cameraId) ||
+        (cameraId === client.config.settings.cameraId ? client.config.settings.cameraLabel : '')) : '';
+      await client.saveSettings({ ...client.config.settings, cameraId, cameraLabel,
+        rate: Number($('admin-rate').value), printMode: $('admin-print-mode').value,
+        printer: $('admin-printer').value, media: $('admin-media').value });
       feedback('Device settings saved on this computer.');
     });
   });

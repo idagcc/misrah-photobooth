@@ -31,6 +31,10 @@ export class BoothClient {
       document.dispatchEvent(new CustomEvent('booth-usage-error'));
     });
   }
+  async rememberCamera(camera) {
+    this.config = await this.request('camera', camera);
+    document.dispatchEvent(new CustomEvent('booth-settings'));
+  }
   async saveSettings(settings) {
     this.config = await this.request('settings', settings);
     document.dispatchEvent(new CustomEvent('booth-settings'));

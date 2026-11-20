@@ -7,7 +7,11 @@ export function portraitZoom(settings, id) {
   return Number.isInteger(zoom) && zoom >= MIN_FACE_ZOOM && zoom <= MAX_FACE_ZOOM ? zoom : defaultPortraitZoom(id);
 }
 
+export function portraitHeight(settings, id) {
+  return id === 'misrah-falconer' ? (settings?.falconerHeight ?? -3) : 0;
+}
+
 // Zoom around the eye midpoint: the face stays centred and never stretches.
-export function withPortraitZoom(settings, zoom) {
-  return { ...settings, scale: settings.scale * zoom / 100 };
+export function withPortraitZoom(settings, zoom, height = 0, openingHeight = 0) {
+  return { ...settings, y: settings.y + openingHeight * height / 100, scale: settings.scale * zoom / 100 };
 }

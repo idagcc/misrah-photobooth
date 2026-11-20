@@ -5,7 +5,7 @@ const base = process.env.PHOTOBOOTH_URL || 'http://127.0.0.1:8774';
 const out = new URL('../../output/misrah-landscape/', import.meta.url);
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, hasTouch: true });
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
@@ -13,6 +13,23 @@ try {
   const frame = await (await page.waitForSelector('#booth-screen')).contentFrame();
   await frame.waitForFunction(() => !document.getElementById('touch-start').disabled, null, { timeout: 60000 });
   assert.equal(new URL(frame.url()).search, '?camera=sample');
+  for (const surface of [page, frame]) {
+    assert.deepEqual(await surface.evaluate(() => {
+      const cancelled = event => !document.dispatchEvent(event);
+      return {
+        menu: cancelled(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })),
+        zoomWheel: cancelled(new WheelEvent('wheel', { ctrlKey: true, deltaY: -100, bubbles: true, cancelable: true })),
+        zoomKey: cancelled(new KeyboardEvent('keydown', { ctrlKey: true, key: '+', bubbles: true, cancelable: true })),
+        overflow: getComputedStyle(document.documentElement).overflow,
+      };
+    }), { menu: true, zoomWheel: true, zoomKey: true, overflow: 'hidden' });
+  }
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.synthesizePinchGesture', { x: 960, y: 540, scaleFactor: 1.8, relativeSpeed: 800, gestureSourceType: 'touch' });
+  assert.equal(await page.evaluate(() => visualViewport.scale), 1, 'Pinch must not zoom the booth');
+  await page.mouse.move(900, 600);
+  await page.mouse.wheel(0, 600);
+  assert.deepEqual(await frame.evaluate(() => [scrollX, scrollY]), [0, 0], 'Guest screen must not scroll');
   for (const [width, height] of [[1920,1080],[1366,768],[1280,800],[1080,1920],[3840,2160]]) {
     await page.setViewportSize({ width, height });
     await page.waitForFunction(() => {
@@ -30,7 +47,7 @@ try {
   assert.equal(await frame.evaluate(() => document.documentElement.scrollHeight > innerHeight), false, 'Welcome screen must fit without scrolling');
   const welcomeBounds = await frame.locator('.welcome-screen').boundingBox();
   assert.ok(welcomeBounds.width >= 1800, 'Welcome should use the display width');
-  await frame.locator('#touch-start').click();
+  await frame.locator('#touch-start').tap();
   assert.equal(await frame.locator('#scene-list .frame-card:enabled').count(), 2);
   const cards = await frame.locator('#scene-list .frame-card').evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
   assert.ok(cards.every(top => top === cards[0]));
@@ -57,6 +74,12 @@ try {
   await frame.locator('body').evaluate(body => { body.tabIndex = -1; body.focus(); });
   await page.keyboard.press('F2');
   await frame.waitForFunction(() => document.getElementById('admin-dialog').open);
+  await frame.locator('#admin-dialog').evaluate(dialog => { dialog.style.maxHeight = '300px'; });
+  const adminBounds = await frame.locator('#admin-dialog').boundingBox();
+  await page.mouse.move(adminBounds.x + adminBounds.width / 2, adminBounds.y + adminBounds.height / 2);
+  await page.mouse.wheel(0, 500);
+  await frame.waitForFunction(() => document.getElementById('admin-dialog').scrollTop > 0);
+  await frame.locator('#admin-dialog').evaluate(dialog => { dialog.style.maxHeight = ''; dialog.scrollTop = 0; });
   await page.keyboard.press('F2');
   await frame.waitForFunction(() => !document.getElementById('admin-dialog').open);
   await page.locator('body').evaluate(body => { body.tabIndex = -1; body.focus(); });
@@ -72,5 +95,5 @@ try {
   assert.deepEqual(errors, []);
   const report = { resolution: '1920x1080', aspectRatio: '16:9', testedViewports: 5, automaticSampleCapture: 'passed', portraitPrint: '1600x2400', adminShortcut: 'passed', errors };
   await writeFile(new URL('verification.json', out), JSON.stringify(report, null, 2));
-  console.log('PASS fixed 1920x1080 viewport across five display sizes, two landscape choices, automatic capture, portrait print image and admin keyboard access.');
+  console.log('PASS fixed 1920x1080 across five displays; pinch, zoom shortcuts, scrolling and context menu blocked; touch, capture, printing and admin scrolling/shortcuts work.');
 } finally { await browser.close(); }

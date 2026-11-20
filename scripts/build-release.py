@@ -38,6 +38,8 @@ def main():
             launcher = "Start Photobooth.bat" if platform == "windows" else "Start Photobooth.command"
             shutil.copy2(ROOT / launcher, stage / launcher)
             if platform == "windows":
+                for extra in ("windows-startup.ps1", "Enable Windows Startup.bat", "Disable Windows Startup.bat"):
+                    (stage / extra).write_bytes((ROOT / extra).read_text().replace("\n", "\r\n").encode())
                 if args.python_zip:
                     data = args.python_zip.read_bytes()
                 else:
